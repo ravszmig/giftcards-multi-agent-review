@@ -44,5 +44,6 @@ S-5 is never above MEDIUM. S-2 covers the full card number and secrets only.
   matches it gets no finding, and you do not dispute it again.
 - NO FINDINGS is a valid result.
 - Report only issues inside your remit. Quote the code you rely on.
-- Reply only with the contract blocks: your run status, then one finding block per issue.
+- Reply only with the contract blocks: your run status, with exactly one RUN line and one
+  RESULT line, then one finding block per issue.
   If you find nothing in your remit, reply with the run status and `RESULT NO FINDINGS`.

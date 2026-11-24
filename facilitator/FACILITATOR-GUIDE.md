@@ -49,7 +49,9 @@ for the participant. Let them answer before you go on.
 4. **Model.** In every new session, `/model` and pick `gpt-6-luna`.
 5. **Approvals.** Each new session asks to trust the folder: Yes. When Copilot asks to edit
    files, the builder may edit source and tests, and the review session may write under
-   `review/` only. Allowing either for the session is fine.
+   `review/` only: approve the first write for the rest of the session. A review runs no
+   shell command but `git status` and `git diff`, which need no approval. It deletes and
+   writes its files with Copilot's file tool.
 6. A hook in `.github/hooks/` keeps the builder out of `docs/`; do not switch it off.
 7. **Morning check, on the participant's model.** In a second clone, run ticket 1's build
    and first review with the prompts below. Pass: FAIL with HIGHs from the Architect (A-1,
@@ -259,7 +261,8 @@ Run the multi-agent-review skill on the current changes. They implement tickets/
 - CRITICAL from Migrations, M-1, at `V1__create_cards.sql`.
 - HIGH from API compatibility: P-2 (`balance(CardNumber)` replaced by `balance(String)`) and
   P-3 (`VERSION`). A MEDIUM P-4 may come with them and stays MEDIUM.
-- HIGH from Primitive obsession: CP-2 and CP-3 at `GiftCards.java`.
+- HIGH from Primitive obsession: CP-2 and CP-3 at `GiftCards.java`. P-2 and CP-2 both point
+  at `balance(String)` and stay two findings, one per role.
 - HIGH from the Tester, OBSERVED starting `DISPUTED: BD-011`, listed under DISAGREEMENTS,
   with NEXT "a human decides: BD-011: …". CAUSES names it BD-011.
 - No blocker from the Architect or the Security Auditor.
@@ -362,10 +365,10 @@ into the clone.
 |---|---|
 | Every reviewer `RUN ERROR`, FAIL on missing coverage. Seen with `"prompt": Required` and `"name": Required` | Missing coverage is the contract working. Same session: "Rerun the reviewers that ended RUN ERROR, then reconcile." |
 | A reviewer is missing from the roster, or one joined that no rule matches | Do not use the verdict. Fresh review session, the review prompt, plus "Check every rule against the file paths in git status and quote the matching line." |
-| The report drops a record's finding, lists one twice, or puts it in the wrong file | Same session: "Reconcile only: start no reviewer and keep the records as they are." At most twice, then a fresh review |
+| The report drops, rewords, merges or re-rates a record's finding, or CAUSES misses a rule a blocker cites | Same session: "Reconcile only: start no reviewer and keep the records as they are." At most twice, then a fresh review |
 | A new, unplanted HIGH after a fix | Fix it with the same fix prompt and review again |
 | A planted finding is missing: the builder refused that point of the ticket | No finding appears there. See [EXPECTED.md](EXPECTED.md#if-the-builder-does-not-follow-the-ticket) |
-| A permission question for a command other than `git status` or `git diff` in a review | No |
+| A permission question for any shell command other than `git status` or `git diff` in a review, such as `rm` | No. The review deletes and writes its files with the file tool; if it stops instead, start a fresh review session |
 | The builder asks to read an odd path | No. It retries |
 | Still FAIL after three fix loops | Stop and debrief on the open findings |
 

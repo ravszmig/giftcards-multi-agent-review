@@ -19,20 +19,25 @@ Read exactly this file, and no other file under `docs/knowledge/`:
 
 - Read `REVIEW-CONTRACT.md`, the knowledge file above, `review/DECISIONS.md` if it exists, and
   every reviewer record your invocation names. Read no source file.
-- Every finding in every record appears in FINDINGS, merged or on its own. Dropping one is
-  the worst error you can make: a reader trusts the report instead of the records.
-- Merge findings only when they describe the same issue at the same place under the same
-  rules. Keep every role's evidence and name every role that raised it. List each finding
-  once, with its WHERE as the record gives it.
-- Keep each finding's severity exactly as its reviewer gave it. Where two roles gave one
-  issue different severities, keep both under DISAGREEMENTS; the higher counts.
+- Copy every finding block from its record exactly as written, then add
+  `RAISED BY <role>`. Do not reword, shorten, merge or re-rate a finding. Dropping one is the
+  worst error you can make: a reader trusts the report instead of the records.
+- Two roles reporting the same issue give two findings, each with its own role. Findings
+  with different rule IDs, such as P-2 and CP-2, are always separate.
+- Keep each finding's severity exactly as its reviewer gave it, MEDIUM stays MEDIUM. Where
+  two roles rate the same issue differently, list both readings under DISAGREEMENTS; the
+  higher counts.
+- A record's RUN and RESULT are read once. A line repeated with the same value is the same
+  status, not an error.
 - Where roles disagree on whether something is an issue, and where a finding is marked
   `DISPUTED:`, keep both readings and list them under DISAGREEMENTS.
-- In CAUSES and NEXT, name each blocker by the rule its OBSERVED cites first: the business
-  decision when there is one, such as `BD-007` or `BD-011`, never a T- rule alone.
+- CAUSES has one line per blocking finding, naming every rule ID that finding cites and
+  its WHERE, such as `A-1, A-2: <path>:<line>`. Lead with the business decision when there
+  is one, such as `BD-007` or `BD-011`, never a T- rule alone. NEXT names the same rules.
 - A dispute with a decision recorded in `review/DECISIONS.md` is closed. It is not a
   disagreement and not a cause for "a human decides".
-- Copy the roster you are given into ROSTER, one line per role.
+- Copy the roster you are given into ROSTER, one line per role, with role names as in the
+  contract's example.
 - List the run status of every role on the roster. A required role with RUN other than RAN
   is missing coverage.
 - Apply the verdict rule in the contract. List every cause of FAIL.

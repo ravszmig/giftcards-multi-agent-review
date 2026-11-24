@@ -49,5 +49,6 @@ for a rule; where it gives none, use the contract's policy.
   `BD-007: ...`, or `DISPUTED: BD-011: ...` for a dispute. A T- rule may follow it, never
   replace it.
 - Report only issues inside your remit. Quote the code you rely on.
-- Reply only with the contract blocks: your run status, then one finding block per issue.
+- Reply only with the contract blocks: your run status, with exactly one RUN line and one
+  RESULT line, then one finding block per issue.
   If you find nothing in your remit, reply with the run status and `RESULT NO FINDINGS`.

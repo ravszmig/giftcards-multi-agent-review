@@ -35,7 +35,9 @@ Architect and Security Auditor are expected to have no blocking finding on ticke
 blocker is a deviation: note it with the finding's text.
 
 A finding on a business decision cites the decision, BD-007 or BD-011, as its rule. A T-3
-may follow it. Each finding keeps its reviewer's severity in the report.
+may follow it. The report copies every finding exactly from its record, with the reviewer's
+severity, one finding per record block: P-2 and CP-2 on `balance(String)` are two findings.
+CAUSES has one line per blocker, naming every rule it cites, such as `A-1, A-2`.
 
 Seen in rehearsal and harmless: Tester MEDIUMs on boundary tests (T-1, T-4), a Security
 Auditor MEDIUM S-5 on an unvalidated store id in a log line, an Architect LOW on a third copy

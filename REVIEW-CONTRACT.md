@@ -11,7 +11,7 @@ RUN       RAN | TIMEOUT | ERROR | NOT RUN
 RESULT    FINDINGS | NO FINDINGS
 ```
 
-- RESULT appears only when RUN is RAN.
+- Exactly one RUN line and one RESULT line. RESULT appears only when RUN is RAN.
 - TIMEOUT, ERROR and NOT RUN are missing coverage. They say nothing about the code.
 
 ## Finding: one block per issue, after the run status
@@ -49,18 +49,18 @@ Use the severity your knowledge file gives for a rule. Where it gives none:
 ```text
 REVIEW REPORT
 VERDICT   PASS | FAIL
-CAUSES    <each cause of FAIL, or "none">
+CAUSES    <one line per blocking finding: every rule ID it cites, then its WHERE; one line per missing role; or "none">
 
 ROSTER
-<role>    required
-<role>    added by <rule ID>: <the changed line that matched>
+<Role name>    required
+<Role name>    added by <rule ID>: <the changed line that matched, without its leading + or ??>
 
 COVERAGE
-<role>    RUN <status>    RESULT <result, or "none">
+<Role name>    RUN <status>    RESULT <result, or "none">
 
 FINDINGS
-<the finding blocks, merged where two roles found the same issue; each adds:>
-RAISED BY <role, role>
+<each finding block copied exactly from its record, one per finding, never merged; each adds:>
+RAISED BY <Role name>
 
 DISAGREEMENTS
 <each disagreement with both readings, or "none">
@@ -68,6 +68,72 @@ DISAGREEMENTS
 NEXT
 <one line per cause, naming its rule: fix the code, a human decides between two readings, or rerun <role>>
 ```
+
+Role names are Architect, Tester, Security Auditor, API compatibility, Migrations and
+Primitive obsession.
+
+### Example
+
+```text
+REVIEW REPORT
+VERDICT   FAIL
+CAUSES    A-1, A-2: src/main/java/com/example/giftcard/domain/RefundService.java:3
+          BD-007: src/main/java/com/example/giftcard/domain/RefundService.java:40
+          M-1: src/main/resources/db/migration/V1__create_cards.sql:4
+
+ROSTER
+Architect    required
+Tester    required
+Security Auditor    required
+Migrations    added by R2: expires_on DATE,
+
+COVERAGE
+Architect    RUN RAN    RESULT FINDINGS
+Tester    RUN RAN    RESULT FINDINGS
+Security Auditor    RUN RAN    RESULT NO FINDINGS
+Migrations    RUN RAN    RESULT FINDINGS
+
+FINDINGS
+SEVERITY  CRITICAL
+WHERE     src/main/resources/db/migration/V1__create_cards.sql:4
+OBSERVED  M-1: `expires_on DATE,` was added to V1, which every environment has applied.
+IMPACT    The changed checksum stops the service starting on the next deploy.
+ACTION    Restore V1 and add the column in a new migration.
+RAISED BY Migrations
+
+SEVERITY  HIGH
+WHERE     src/main/java/com/example/giftcard/domain/RefundService.java:3
+OBSERVED  A-1, A-2: the domain imports `adapter.web.StoreWebhookNotifier` and calls it.
+IMPACT    The domain depends on an adapter, against the inward dependency rule.
+ACTION    Notify through a port the adapter implements, wired in the application.
+RAISED BY Architect
+
+SEVERITY  HIGH
+WHERE     src/main/java/com/example/giftcard/domain/RefundService.java:40
+OBSERVED  BD-007: refunds may exceed the redemption by `GOODWILL_LIMIT`.
+IMPACT    Money is created that Finance cannot book.
+ACTION    Cap the refunds against one redemption at the redemption amount.
+RAISED BY Tester
+
+SEVERITY  MEDIUM
+WHERE     src/test/java/com/example/giftcard/domain/RefundServiceTest.java:54
+OBSERVED  T-1: no test refunds one penny over the redemption.
+IMPACT    A regression at the limit would pass the suite.
+ACTION    Add a test at the limit and one penny either side.
+RAISED BY Tester
+
+DISAGREEMENTS
+none
+
+NEXT
+fix the code: A-1, A-2: src/main/java/com/example/giftcard/domain/RefundService.java:3
+fix the code: BD-007: src/main/java/com/example/giftcard/domain/RefundService.java:40
+fix the code: M-1: src/main/resources/db/migration/V1__create_cards.sql:4
+```
+
+The example mixes the two tickets' issues to show every part once. A disputed finding adds
+its two readings under DISAGREEMENTS and a NEXT line such as
+`a human decides: BD-011: 14 days or 30 days`.
 
 ## Verdict
 

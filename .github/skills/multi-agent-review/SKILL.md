@@ -47,8 +47,10 @@ line, or "No optional rule matches", and start no reviewer.
 
 ## 2 · Start every reviewer at once
 
-Before a full review, delete the previous records and report with the shell tool:
-`rm -rf review/runs review/REPORT.md`. Keep `review/DECISIONS.md`.
+Before a full review, delete the previous records in `review/runs/` and `review/REPORT.md`
+with your file tool, for example one `apply_patch` with a `*** Delete File: <path>` line per
+file. Keep `review/DECISIONS.md`. Never use a shell command to delete or write a file: the
+only shell commands in a review are `git status` and `git diff`.
 
 Start all reviewers on the roster in a single response: one `task` call per role, all in the
 same turn, so they run in parallel. Every `task` call sets four fields: `name` (the agent,
@@ -68,9 +70,10 @@ a hint, your routing notes or another reviewer's output.
 
 ## 3 · Record every status
 
-When a reviewer returns, write its reply verbatim to `review/runs/<agent>.md` as a new file,
-one file per write call. If a file is already at that path, delete it first and create it
-again. Never patch a record.
+When a reviewer returns, write its reply verbatim to `review/runs/<agent>.md` as a new file
+with your file tool, one file per call. If a file is already at that path, delete it first
+with the file tool, then create it. Never patch a record, and never write a file through the
+shell: no heredoc, no redirect.
 
 - If the task fails, write a run status block with `RUN ERROR` and the error in one line.
 - If a reviewer has not returned after 10 minutes, stop it and write `RUN TIMEOUT`.
@@ -84,12 +87,12 @@ When every reviewer on the roster has a record, start the `reconciler` agent onc
 Reconcile the review of the current changes.
 Read REVIEW-CONTRACT.md, review/DECISIONS.md if it exists, and the knowledge file your agent file lists.
 The reviewer records are review/runs/<agent>.md for: <agents>.
-Roster: <one line per role: "<role>    required" or "<role>    added by <rule ID>: <matched line>">.
+Roster: <one line per role: "<Role name>    required" or "<Role name>    added by <rule ID>: <matched line, without its leading + or ??>">.
 Reply only with the report in the contract's format.
 ```
 
-Write its reply verbatim to `review/REPORT.md` as a new file: delete any earlier report
-first, never patch it. Then print the report and stop.
+Write its reply verbatim to `review/REPORT.md` as a new file with your file tool: delete any
+earlier report first with the file tool, never patch it. Then print the report and stop.
 
 ## Rerun one reviewer
 
@@ -104,8 +107,8 @@ with the roster of the last report.
 ## Record a human decision
 
 If you are asked to record a human decision on a disputed rule, start no reviewer. The rule
-ID is the business decision, such as `BD-011`, never a T- rule. Create
-`review/DECISIONS.md` if it does not exist, with the line `# Decisions`. Append:
+ID is the business decision, such as `BD-011`, never a T- rule. Use your file
+tool. Create `review/DECISIONS.md` if it does not exist, with the line `# Decisions`. Append:
 
 ```text
 

@@ -29,16 +29,16 @@ prefix tells the reconciler which role a rule belongs to.
 | `M-` | Migrations |
 | `CP-` | Primitive obsession |
 
-## 3. Merging
+## 3. Copying findings
 
-- **RP-1** Two findings are one issue when they name the same file, overlapping lines and
-  the same cause. Merge them. Keep every role's OBSERVED under EVIDENCE and name every role
-  under RAISED BY.
-- **RP-2** Two findings at the same place with different causes stay separate. A method that
-  breaks a business rule and also imports the wrong package is two issues.
-- **RP-3** A finding keeps the severity its reviewer gave. When merged findings carry
-  different severities, the merged finding takes the higher one, and the two readings go
-  under DISAGREEMENTS.
+- **RP-1** Every finding is copied from its reviewer's record exactly as written, with
+  `RAISED BY <role>` added. No finding is reworded or merged. Two roles reporting the same
+  issue give two findings, each with its role.
+- **RP-2** Findings with different rule IDs are always separate. A method that breaks a
+  business rule and also imports the wrong package is two findings.
+- **RP-3** A finding keeps the severity its reviewer gave. When two roles rate the same
+  issue differently, both findings stay as written, the two readings go under
+  DISAGREEMENTS, and the higher one counts towards the verdict.
 - **RP-4** Order FINDINGS by severity, CRITICAL first.
 
 ## 4. Disagreements
@@ -61,12 +61,13 @@ prefix tells the reconciler which role a rule belongs to.
 - **RP-8** One COVERAGE line per role on the roster, in roster order, with RUN and RESULT
   copied from its record.
 - **RP-9** A record with no `RUN` field, or one that is not in the contract format, counts
-  as `RUN ERROR`.
+  as `RUN ERROR`. A RUN or RESULT line repeated with the same value counts once.
 
 ## 6. NEXT
 
-- **RP-10** CAUSES names every open CRITICAL and HIGH finding by rule ID and file. One
-  line per FAIL cause. A confirmed blocker: "fix the code: <finding>". A
+- **RP-10** CAUSES has one line per open CRITICAL and HIGH finding: every rule ID the
+  finding cites, then its WHERE, such as `A-1, A-2: <path>:<line>`. One line per missing
+  role. One line per FAIL cause. A confirmed blocker: "fix the code: <finding>". A
   disputed blocker: "a human decides: ...". Missing coverage: "rerun <role>".
 - **RP-11** Nothing reruns automatically. NEXT names an action for a person; it starts
   nothing.
