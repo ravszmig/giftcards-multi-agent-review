@@ -59,8 +59,10 @@ const decide = (event) => {
   }
   if (!agentFile || !existsSync(agentFile)) return undefined
 
+  // git status and git diff only, with or without --no-pager, alone or chained with && or ;.
+  const gitRead = (part) => /^\s*git\s+(--no-pager\s+)?(status|diff)\b[^;&|<>`$]*$/.test(part)
   if (['bash', 'powershell'].includes(tool)
-    && !/^\s*git\s+(status|diff)\b[^;&|<>`$]*$/.test(String(args.command ?? ''))) {
+    && !String(args.command ?? '').split(/&&|;/).every(gitRead)) {
     return 'A reviewer runs only git status and git diff.'
   }
   if (!docs) return undefined

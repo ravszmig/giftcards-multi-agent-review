@@ -66,7 +66,7 @@ DISAGREEMENTS
 <each disagreement with both readings, or "none">
 
 NEXT
-<one line per cause: fix the code, a human decides between two readings, or rerun <role>>
+<one line per cause, naming its rule: fix the code, a human decides between two readings, or rerun <role>>
 ```
 
 ## Verdict

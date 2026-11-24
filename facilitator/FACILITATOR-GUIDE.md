@@ -171,11 +171,17 @@ Type `/tasks` when the reviewers start; Esc closes it.
 **Do.** In the `builder` tab, the same session, paste:
 
 ```text
-Fix only the CRITICAL and HIGH findings in review/REPORT.md. Change no file the findings do not name. Run mvn -o -q test before you finish and leave the changes uncommitted.
+Fix only the CRITICAL and HIGH findings in review/REPORT.md. Change no file the findings do not name, except tests that assert the behaviour a finding removes: update those. Run mvn -o -q test before you finish and leave the changes uncommitted.
 ```
 
 **Expected (up to 1.5 min):** refunds capped at the redemption, `number.masked()` in the log,
-the notification moved out of the domain, for example behind a domain port.
+the notification moved out of the domain, for example behind a domain port. A test that
+asserted the full card number in the log is updated with it.
+
+If the builder leaves the suite failing, do not stop for it: this lesson is about the review,
+and the Tester neither runs the suite nor blocks on a failing test. Use it as a talking point:
+this is why a developer agent in a full pipeline, with several agents and quality checks,
+would do better.
 
 **Do.** In the `review` tab, `/exit`, then `copilot`, trust, `/model`, and the same review
 prompt:
@@ -231,8 +237,9 @@ Implement tickets/TICKET-2-card-expiry.md. Read AGENTS.md and the ticket, and no
 **Ask.** "Which of R1, R2 and R3 will fire, and on which line?" R1 and R3 on
 `balance(String)`, R2 on `V1`. "And the Tester?" BD-011 says 14 days, the ticket 30.
 
-**Expected (up to 3.5 min):** `balance(String)`, `int daysUntilExpiry(String)`, `VERSION`
-still 1.4.0, 30 days, and `expires_on DATE` added inside `V1__create_cards.sql`.
+**Expected (up to 3.5 min):** `balance(String)` in place of `balance(CardNumber)`, `int
+daysUntilExpiry(String)`, `VERSION` still 1.4.0, 30 days, and `expires_on DATE` added inside
+`V1__create_cards.sql`.
 
 **Show.** The diff viewer on `GiftCards.java` and `V1__create_cards.sql`. "V1 is applied in
 every environment."
@@ -250,10 +257,11 @@ Run the multi-agent-review skill on the current changes. They implement tickets/
 - `VERDICT   FAIL`. ROSTER: the three required roles, then API compatibility (R1),
   Migrations (R2) and Primitive obsession (R3), each with the line that matched.
 - CRITICAL from Migrations, M-1, at `V1__create_cards.sql`.
-- HIGH from API compatibility: P-2 (`balance(CardNumber)` removed) and P-3 (`VERSION`).
+- HIGH from API compatibility: P-2 (`balance(CardNumber)` replaced by `balance(String)`) and
+  P-3 (`VERSION`). A MEDIUM P-4 may come with them and stays MEDIUM.
 - HIGH from Primitive obsession: CP-2 and CP-3 at `GiftCards.java`.
-- HIGH from the Tester, OBSERVED starting `DISPUTED:` on BD-011, listed under DISAGREEMENTS,
-  with NEXT "a human decides".
+- HIGH from the Tester, OBSERVED starting `DISPUTED: BD-011`, listed under DISAGREEMENTS,
+  with NEXT "a human decides: BD-011: …". CAUSES names it BD-011.
 - No blocker from the Architect or the Security Auditor.
 
 **Show.** The roster first: "Each optional role names the rule and the line that put it
@@ -279,7 +287,7 @@ settle it."
 **Do.** The participant states the decision. In the `review` tab, the same session:
 
 ```text
-Do not run any reviewer. Record this decision for BD-011 in review/DECISIONS.md: "BD-011 holds: the grace period is 14 days. No entry supersedes it. The PO adds one if 30 days is wanted." Then print review/DECISIONS.md.
+Do not run any reviewer. Record this decision in review/DECISIONS.md under the rule ID BD-011, as "DECISION  BD-011": "BD-011 holds: the grace period is 14 days. No entry supersedes it. The PO adds one if 30 days is wanted." Then print review/DECISIONS.md.
 ```
 
 Put the participant's own words in place of the scripted text. A 30-day decision is equally
@@ -295,7 +303,7 @@ this file."
 **Do.** In the `builder` tab, the same session:
 
 ```text
-Fix only the CRITICAL and HIGH findings in review/REPORT.md. The human decision on the disputed BD-011 finding is in review/DECISIONS.md: follow it. Change no file the findings do not name. Run mvn -o -q test before you finish and leave the changes uncommitted.
+Fix only the CRITICAL and HIGH findings in review/REPORT.md. The human decision on the disputed BD-011 finding is in review/DECISIONS.md: follow it. Change no file the findings do not name, except tests that assert the behaviour a finding removes: update those. Run mvn -o -q test before you finish and leave the changes uncommitted.
 ```
 
 **Ask.** "Two roles flagged `balance(String)`. Do their actions conflict?" No:
@@ -363,12 +371,18 @@ into the clone.
 
 ## Evidence
 
-Rehearsed 2026-11-20 to 2026-11-24 on `gpt-6-luna`, Copilot CLI 1.0.114, macOS, JDK 21: an
-IntelliJ recording and ten scripted dry runs. In every run each planted issue came from the
+Rehearsed 2026-11-20 to 2026-11-24 on `gpt-6-luna`, Copilot CLI 1.0.114 and 1.0.115, macOS,
+JDK 21: an IntelliJ recording, ten scripted dry runs of an earlier setup, and three of this
+one. In every run each planted issue came from the
 expected reviewer at the expected severity, and both tickets reached PASS, after one fix round
 each in most runs. Model time for a whole session: 11 to 24 minutes.
 
-> **TODO.** All rehearsals used an earlier setup: committed ticket branches and a pinned
-> diff. This version reviews uncommitted changes against `HEAD`, lets the skill set the
-> roster itself, and builds ticket 2 on top of ticket 1. It has not been run end to end.
-> It has not been rehearsed on Windows, and a live `RUN TIMEOUT` has not been seen.
+The three dry runs of this setup, 2026-11-24, on the published lab: every planted ID came from
+the expected role at the expected severity, R1, R2 and R3 were right in all twelve reviews,
+both tickets reached PASS after one fix round, and nothing touched Git. They led to the
+current fix prompts, the BD- rule IDs on business findings, the hook's handling of chained
+`git status` and `git diff`, records cleared at the start of each review, and ticket 2's
+explicit "replace, not overload".
+
+> **TODO.** Those last changes have not been run end to end. It has not been rehearsed on
+> Windows, and a live `RUN TIMEOUT` has not been seen.

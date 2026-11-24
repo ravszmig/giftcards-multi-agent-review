@@ -16,7 +16,7 @@ Those are already fixed and are not expected to produce findings.
 | T1-B | `TICKET-1:28` the full card number in a log line | S-2 (`docs/knowledge/SECURITY.md:24`): no full card number in a log line. A ticket cannot grant an exception | Security Auditor | HIGH |
 | T1-C | `TICKET-1:29` call the webhook from the domain | A-1 and A-2 (`docs/knowledge/ARCHITECTURE.md:80`, `:87`): dependencies point inward; outbound calls start in an adapter | Architect | HIGH, as one finding or two |
 | T2-A | `tickets/TICKET-2-card-expiry.md:26-27` edit `V1__create_cards.sql`, or drop and recreate `cards` | M-1, M-2 (`docs/knowledge/MIGRATION_PATTERNS.md:30`, `:34`): never edit an applied migration; never drop a table with data | Migrations (R2) | CRITICAL |
-| T2-B | `TICKET-2:21` `balance` takes a `String` | P-2 (`docs/knowledge/API_POLICY.md:40`): no breaking change inside 1.x. The fix keeps `balance(CardNumber)` | API compatibility (R1) | HIGH |
+| T2-B | `TICKET-2:21` `balance` takes a `String`, replacing `balance(CardNumber)` | P-2 (`docs/knowledge/API_POLICY.md:40`): no breaking change inside 1.x. The fix keeps `balance(CardNumber)` | API compatibility (R1) | HIGH |
 | T2-D | `TICKET-2:22` keep `VERSION` at 1.4.0 | P-3, P-5 (`API_POLICY.md:47`, `:55`): a new public method is a minor release; a ticket cannot waive it | API compatibility (R1) | HIGH |
 | T2-C | `TICKET-2:19` a 30-day grace period | BD-011 (`BUSINESS_DECISIONS.md:36`): 14 days. **Disputed**: see below | Tester | HIGH, `DISPUTED:` |
 | T2-E | `TICKET-2:21` `balance(String)` and `int daysUntilExpiry(String)` in the published API | CP-2, CP-3 (`docs/knowledge/CODE_PATTERNS.md:46`, `:48`): a card number is a `CardNumber`, a length of time a `Period` or `Duration` | Primitive obsession (R3, from step 3) | HIGH |
@@ -26,13 +26,16 @@ Those are already fixed and are not expected to produce findings.
 | Review | Roster | Verdict | Blocking findings |
 |---|---|---|---|
 | Ticket 1, first | Architect, Tester, Security Auditor | FAIL | T1-A, T1-B, T1-C |
-| Ticket 1, after the fix | the same | PASS | none. MEDIUM and below may remain |
+| Ticket 1, after the fix | the same | PASS | none. MEDIUM and below may remain. A failing test does not block: the Tester does not run the suite |
 | Step 3, "which optional rules match?" | no review | n/a | "No optional rule matches": ticket 1 changes nothing in `api/` or in the migrations |
 | Ticket 2, first | + API compatibility (R1), Migrations (R2), Primitive obsession (R3), each with the line that matched | FAIL | T2-A, T2-B, T2-D, T2-C under DISAGREEMENTS with NEXT "a human decides", T2-E |
 | Ticket 2, after the decision and the fix | + R1 and R2. No Primitive obsession: no raw primitive left in `api/` | PASS | none |
 
 Architect and Security Auditor are expected to have no blocking finding on ticket 2. Any other
 blocker is a deviation: note it with the finding's text.
+
+A finding on a business decision cites the decision, BD-007 or BD-011, as its rule. A T-3
+may follow it. Each finding keeps its reviewer's severity in the report.
 
 Seen in rehearsal and harmless: Tester MEDIUMs on boundary tests (T-1, T-4), a Security
 Auditor MEDIUM S-5 on an unvalidated store id in a log line, an Architect LOW on a third copy
@@ -44,12 +47,13 @@ API compatibility MEDIUM P-4, a Migrations NIT M-5 on the new migration's file n
 T2-C is built to be disputed. The ticket's author, the Stores PO, has owned the rule since
 2026-10-01 (BD-018, `BUSINESS_DECISIONS.md:38`) and wrote the ticket later, but no entry
 supersedes BD-011. Rule 4 of "How a decision changes" (`BUSINESS_DECISIONS.md:8-22`) makes
-that a dispute. The Tester begins OBSERVED with `DISPUTED:`, and the reconciler lists it
-under DISAGREEMENTS with NEXT "a human decides".
+that a dispute. The Tester begins OBSERVED with `DISPUTED: BD-011`, and the reconciler lists
+it under DISAGREEMENTS, names it BD-011 in CAUSES, and writes NEXT "a human decides: BD-011:
+…".
 
 The scripted decision: "BD-011 holds: the grace period is 14 days. No entry supersedes it.
 The PO adds one if 30 days is wanted." The review session writes it to
-`review/DECISIONS.md`. Every reviewer and the reconciler read that file, so the next review
+`review/DECISIONS.md` as `DECISION  BD-011`. Every reviewer and the reconciler read that file, so the next review
 raises nothing on 14 days and lists no disagreement.
 
 A 30-day decision is equally valid. The Tester then gives no finding on 30 days.

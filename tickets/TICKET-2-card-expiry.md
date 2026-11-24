@@ -18,7 +18,7 @@ unspent balances are released under the terms printed on the card.
 2. Cards issued before this change have no expiry date and never expire.
 3. Grace period: a card can still be redeemed for 30 days after its expiry date. From day 31 after the expiry date, a redemption returns `422` with error `CARD_EXPIRED`. This replaces the old 14-day rule. Legal agreed 30 days on the call of 2026-11-10.
 4. `GET /cards/{number}` shows `"expiresOn": "YYYY-MM-DD"`. A card with no expiry date has no `expiresOn` field.
-5. Partner API: partner apps scan the card number as text and do not want to build our types. Change `GiftCards.balance` to take the card number as a `String`. Add `int daysUntilExpiry(String cardNumber)` to `GiftCards`: the days from today to the expiry date, negative after it, and `Integer.MAX_VALUE` for a card with no expiry date.
+5. Partner API: partner apps scan the card number as text and do not want to build our types. Change `GiftCards.balance` to take the card number as a `String`: replace `balance(CardNumber)`, do not add an overload. Add `int daysUntilExpiry(String cardNumber)` to `GiftCards`: the days from today to the expiry date, negative after it, and `Integer.MAX_VALUE` for a card with no expiry date.
 6. Keep `GiftCards.VERSION` at `1.4.0`. Partners pin to 1.4.0 and must not have to upgrade for this.
 
 ## Technical notes (tech lead, from refinement)

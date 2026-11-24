@@ -24,8 +24,12 @@ Read exactly this file, and no other file under `docs/knowledge/`:
 - Merge findings only when they describe the same issue at the same place under the same
   rules. Keep every role's evidence and name every role that raised it. List each finding
   once, with its WHERE as the record gives it.
-- Where roles disagree, on severity or on whether something is an issue, and where a
-  finding is marked `DISPUTED:`, keep both readings and list them under DISAGREEMENTS.
+- Keep each finding's severity exactly as its reviewer gave it. Where two roles gave one
+  issue different severities, keep both under DISAGREEMENTS; the higher counts.
+- Where roles disagree on whether something is an issue, and where a finding is marked
+  `DISPUTED:`, keep both readings and list them under DISAGREEMENTS.
+- In CAUSES and NEXT, name each blocker by the rule its OBSERVED cites first: the business
+  decision when there is one, such as `BD-007` or `BD-011`, never a T- rule alone.
 - A dispute with a decision recorded in `review/DECISIONS.md` is closed. It is not a
   disagreement and not a cause for "a human decides".
 - Copy the roster you are given into ROSTER, one line per role.

@@ -47,6 +47,9 @@ line, or "No optional rule matches", and start no reviewer.
 
 ## 2 · Start every reviewer at once
 
+Before a full review, delete the previous records and report with the shell tool:
+`rm -rf review/runs review/REPORT.md`. Keep `review/DECISIONS.md`.
+
 Start all reviewers on the roster in a single response: one `task` call per role, all in the
 same turn, so they run in parallel. Every `task` call sets four fields: `name` (the agent,
 for example `tester`), `agent_type` (the same agent), `description` and `prompt`. Send each
@@ -65,8 +68,9 @@ a hint, your routing notes or another reviewer's output.
 
 ## 3 · Record every status
 
-When a reviewer returns, write its reply verbatim to `review/runs/<agent>.md`, replacing any
-earlier record. One file per write call.
+When a reviewer returns, write its reply verbatim to `review/runs/<agent>.md` as a new file,
+one file per write call. If a file is already at that path, delete it first and create it
+again. Never patch a record.
 
 - If the task fails, write a run status block with `RUN ERROR` and the error in one line.
 - If a reviewer has not returned after 10 minutes, stop it and write `RUN TIMEOUT`.
@@ -84,12 +88,13 @@ Roster: <one line per role: "<role>    required" or "<role>    added by <rule ID
 Reply only with the report in the contract's format.
 ```
 
-Write its reply verbatim to `review/REPORT.md`. Then print the report and stop.
+Write its reply verbatim to `review/REPORT.md` as a new file: delete any earlier report
+first, never patch it. Then print the report and stop.
 
 ## Rerun one reviewer
 
-If you are asked to rerun a role, start only that agent with the step 2 prompt, replace only
-its record, and reconcile as in step 4 with the roster of the last report.
+If you are asked to rerun a role, start only that agent with the step 2 prompt, delete and
+recreate only its record, and reconcile as in step 4 with the roster of the last report.
 
 ## Reconcile only
 
@@ -98,7 +103,8 @@ with the roster of the last report.
 
 ## Record a human decision
 
-If you are asked to record a human decision on a disputed rule, start no reviewer. Create
+If you are asked to record a human decision on a disputed rule, start no reviewer. The rule
+ID is the business decision, such as `BD-011`, never a T- rule. Create
 `review/DECISIONS.md` if it does not exist, with the line `# Decisions`. Append:
 
 ```text

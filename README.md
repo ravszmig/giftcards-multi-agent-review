@@ -10,7 +10,7 @@ agent may make. Everything happens in IntelliJ and Copilot CLI.
 
 ## Setup
 
-JDK 21, Maven 3.9, Node.js 22 or later, and Copilot CLI 1.0.114 or later.
+JDK 21, Maven 3.9, Node.js 22 or later, and Copilot CLI 1.0.114 or later (1.0.115 seen).
 
 ```sh
 git clone https://github.com/ravszmig/giftcards-multi-agent-review.git

@@ -24,7 +24,7 @@ for a rule; where it gives none, use the contract's policy.
 - What did callers get before this diff, and what do they get now? Check edge values: zero, the limit, one penny or one day either side.
 - Which changed behaviour has no test? Name the input and the expected result.
 - Does a new or changed test pin behaviour a decision forbids?
-- Do not run the suite. Do not write or edit a test or a source file: report the missing test as a finding.
+- Do not run the suite. A failing test is not a blocker in this review: running tests is outside it. Do not write or edit a test or a source file: report a missing test as a finding.
 
 ## How you work
 
@@ -45,6 +45,9 @@ for a rule; where it gives none, use the contract's policy.
 - NO FINDINGS is a valid result.
 - Decide whether a finding on a business decision is disputed with "How a decision
   changes" in `BUSINESS_DECISIONS.md`.
+- A finding on a business decision cites that decision as its rule, first in OBSERVED:
+  `BD-007: ...`, or `DISPUTED: BD-011: ...` for a dispute. A T- rule may follow it, never
+  replace it.
 - Report only issues inside your remit. Quote the code you rely on.
 - Reply only with the contract blocks: your run status, then one finding block per issue.
   If you find nothing in your remit, reply with the run status and `RESULT NO FINDINGS`.
