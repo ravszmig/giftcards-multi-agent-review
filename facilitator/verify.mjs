@@ -2,19 +2,20 @@ import assert from 'node:assert/strict'
 import {
   cpSync, existsSync, mkdirSync, readFileSync, readdirSync, rmSync, statSync, writeFileSync,
 } from 'node:fs'
-import { join, relative } from 'node:path'
-import { expectedRoster, pin, proofs, setup } from './fixture.mjs'
-import { git, maven, root, run, workspaceOf } from './lib.mjs'
+import { join, relative, resolve } from 'node:path'
 import {
-  activeRules, checkReport, route, severities, severityCaps,
+  activeRules, checkReport, pinnedRoster, readPin, route, severities, severityCaps,
 } from './report-check.mjs'
+import { addRole, cli, git, maven, proofs, repo, run } from './tools.mjs'
 
-const base = join(root, 'base')
+// The repository root is the participant's project; facilitator/ is everything else.
+const base = repo
+const root = repo
 const REFUND = 'src/main/java/com/example/giftcard/domain/RefundService.java:30'
 const say = (line) => console.log(line)
 const walk = (dir) => readdirSync(dir).flatMap((name) => {
   const path = join(dir, name)
-  if (['target', 'node_modules', '.git'].includes(name)) return []
+  if (['target', 'node_modules', '.git', '.lab', 'review', '.idea'].includes(name)) return []
   return statSync(path).isDirectory() ? walk(path) : [path]
 })
 const lineOf = (file, number) => readFileSync(file, 'utf8').split('\n')[number - 1] ?? ''
@@ -27,9 +28,26 @@ const staticChecks = () => {
   const agentsMd = readFileSync(join(base, 'AGENTS.md'), 'utf8')
   const named = readdirSync(join(base, 'docs/knowledge')).filter((f) => agentsMd.includes(f))
   assert.ok(!/knowledge/i.test(agentsMd) && named.length === 0, `AGENTS.md names ${named}`)
+  assert.ok(!/facilitator/i.test(agentsMd), 'AGENTS.md mentions facilitator/')
   assert.ok(!existsSync(join(base, '.github/copilot-instructions.md')),
     'base has .github/copilot-instructions.md; the builder would load it')
-  say('Builder scope: AGENTS.md names no knowledge file; no copilot-instructions.md')
+  const ignored = readFileSync(join(base, '.gitignore'), 'utf8').split('\n')
+  for (const entry of ['.idea/', '*.iml', 'target/', 'review/', '.lab/']) {
+    assert.ok(ignored.includes(entry), `.gitignore does not ignore ${entry}`)
+  }
+  assert.ok(readFileSync(join(base, '.ignore'), 'utf8').split('\n').includes('facilitator/'),
+    '.ignore does not hide facilitator/ from search tools')
+  const session = readFileSync(join(base, 'scripts/copilot-session.sh'), 'utf8')
+  const [builderFlags, reviewerFlags] = session.split(/^reviewer\)$/m)
+  for (const [role, flags, denied] of [['builder', builderFlags, ['docs', 'facilitator']],
+    ['reviewer', reviewerFlags, ['facilitator']]]) {
+    for (const dir of denied) {
+      assert.ok(flags.includes(`--deny-tool="read($W/${dir}/**)"`), `${role} may read ${dir}/`)
+    }
+  }
+  say('Isolation: AGENTS.md names no knowledge file and no facilitator/; no '
+    + 'copilot-instructions.md; the builder is denied docs/ and facilitator/, the reviewer '
+    + 'facilitator/; search tools skip facilitator/; .idea, target, review and .lab are ignored')
 
   const knowledge = readdirSync(join(base, 'docs/knowledge')).filter((f) => f.endsWith('.md'))
   const agents = Object.fromEntries([
@@ -46,15 +64,15 @@ const staticChecks = () => {
     }
   }
   for (const file of knowledge) assert.ok(readers.has(file), `${file} has no reader`)
-  const readme = readFileSync(join(root, 'README.md'), 'utf8').split('\n')
+  const table = readFileSync(join(root, 'facilitator/EXPECTED.md'), 'utf8').split('\n')
   for (const [agent, files] of Object.entries(agents)) {
-    const row = readme.find((l) => l.startsWith(`| \`${agent}\``))
-    assert.ok(row, `README has no who-reads-what row for ${agent}`)
+    const row = table.find((l) => l.startsWith(`| \`${agent}\``))
+    assert.ok(row, `EXPECTED.md has no who-reads-what row for ${agent}`)
     assert.deepEqual([...row.matchAll(/[A-Z_]+\.md/g)].map((m) => m[0]).sort(), [...files].sort(),
-      `README row for ${agent}`)
+      `EXPECTED.md row for ${agent}`)
   }
   say(`Persona scoping: ${knowledge.length} knowledge files, each read by exactly one of `
-    + `${Object.keys(agents).length} agents; README table matches the agent files`)
+    + `${Object.keys(agents).length} agents; EXPECTED.md's table matches the agent files`)
 
   // Every severity ceiling the report check enforces is the one the rule's own text states.
   const ruleLines = knowledge.flatMap((f) => readFileSync(join(base, 'docs/knowledge', f), 'utf8')
@@ -113,8 +131,7 @@ const staticChecks = () => {
   }
   say('Launch scripts: scripts/copilot-builder and copilot-reviewer are executable bash')
 
-  const texts = [...walk(base), ...walk(join(root, 'facilitator')), join(root, 'README.md'),
-    join(root, 'FACILITATOR-GUIDE.md')]
+  const texts = walk(base)
     .filter((f) => /\.(md|java|sql|xml|mjs)$/.test(f))
   const dashes = texts.filter((f) => readFileSync(f, 'utf8').includes('\u2014'))
   assert.deepEqual(dashes.map((f) => relative(root, f)), [], 'em dashes')
@@ -142,9 +159,9 @@ const report = (sha, verdict, roster, findings, { causes, disagreements = 'none'
 
 // The report check must catch each mistake a reconciler or a router can make.
 const reportCheckSelfTest = (target, name, rules, sha, roster, records, findings) => {
-  const dir = join(target, 'report-check', name)
+  const dir = join(target, '.lab', 'report-check', name)
   mkdirSync(join(dir, 'runs'), { recursive: true })
-  cpSync(join(workspaceOf(target), 'review/diff.patch'), join(dir, 'diff.patch'))
+  cpSync(join(target, 'review/diff.patch'), join(dir, 'diff.patch'))
   writeFileSync(join(dir, 'PIN'), `base ${sha.base}\nhead ${sha.head}\n`)
   for (const [role, own] of Object.entries(records)) {
     writeFileSync(join(dir, 'runs', `${role}.md`), record(role, sha, own))
@@ -162,36 +179,37 @@ const reportCheckSelfTest = (target, name, rules, sha, roster, records, findings
   return check
 }
 
-const scenario = (target, label, patch, { ticket, rules, routes, expect = {} }) => {
-  const ws = workspaceOf(target)
+// The skill's own pin script is the only pin. Its roster must be the one the report check's
+// rules give.
+const pinWith = (ws, label) => {
+  const pinned = run(ws, join(ws, '.github/skills/multi-agent-review/pin.mjs'), [])
+  assert.equal(pinned.status, 0, `${label}: pin.mjs\n${pinned.stdout}${pinned.stderr}`)
+  const ci = readFileSync(join(ws, 'review/ci-results.txt'), 'utf8')
+    .match(/exit (\d+)\n# Tests run: (\d+), Passed: (\d+)/)
+  return { ...readPin(join(ws, 'review')), ci: { status: Number(ci[1]), passed: Number(ci[3]) } }
+}
+
+const scenario = (ws, label, patch, { ticket, rules, routes, expect = {} }) => {
   git(ws, ['apply'], { input: readFileSync(join(root, 'facilitator/reference', patch), 'utf8') })
   git(ws, ['add', '-A'])
   git(ws, ['commit', '-q', '-m', label])
-  const pinned = pin(target)
-  assert.equal(pinned.ci.status, 0, `${label}: CI fails\n${pinned.ci.output}`)
-  const { matches } = expectedRoster(ws)
-  assert.deepEqual(Object.keys(matches).sort(), routes, `${label}: routing`)
-  const all = route(readFileSync(join(ws, 'review/diff.patch'), 'utf8'), ['R1', 'R2', 'R3'])
-  say(`${label}: CI ${pinned.ci.passed} passed, 0 failed; routing (${rules.join(', ')}) gives `
-    + `${routes.join(', ') || 'no optional role'}; with R3 active: `
-    + `${Object.keys(all).sort().join(', ') || 'none'}`)
-  // The skill's own pin script, used by the interactive review, must pin and route exactly
-  // as fixture.mjs pin does.
-  const pinFiles = ['PIN', 'diff.patch', 'ci-results.txt', 'ROSTER', 'DECISIONS.md']
-  const fixturePin = pinFiles.map((f) => readFileSync(join(ws, 'review', f), 'utf8'))
-  const skillPin = run(ws, join(ws, '.github/skills/multi-agent-review/pin.mjs'), [])
-  assert.equal(skillPin.status, 0, skillPin.stdout + skillPin.stderr)
-  for (const [i, f] of pinFiles.entries()) {
-    assert.equal(readFileSync(join(ws, 'review', f), 'utf8'), fixturePin[i],
-      `${label}: pin.mjs review/${f}`)
-  }
+  const pinned = pinWith(ws, label)
+  assert.equal(pinned.ci.status, 0, `${label}: CI fails`)
+  const diff = readFileSync(join(ws, 'review/diff.patch'), 'utf8')
+  assert.deepEqual(Object.keys(route(diff, rules)).sort(), routes, `${label}: routing`)
+  assert.equal(readFileSync(join(ws, 'review/ROSTER'), 'utf8'),
+    `${pinnedRoster(diff, rules).join('\n')}\n`, `${label}: pin.mjs ROSTER`)
+  assert.match(readFileSync(join(ws, 'review/PIN'), 'utf8'),
+    new RegExp(`^DIFF {6}base ${pinned.base} \u00b7 head ${pinned.head}$`, 'm'), 'PIN DIFF line')
   const routed = run(ws, join(ws, '.github/skills/multi-agent-review/pin.mjs'), ['--route'])
   assert.equal(routed.stdout.split('\n')[0], `Active rules: ${rules.join(', ')}`, routed.stdout)
   assert.deepEqual(routed.stdout.split('\n').filter((l) => / matches: /.test(l))
     .map((l) => l.split(' ')[0]), routes, `${label}: pin.mjs --route`)
-  say(`${label}: the skill's pin.mjs writes the same PIN, diff, CI results and ROSTER `
-    + `(${fixturePin[3].trim().split('\n').length} roles); --route agrees`)
-  const { rows, lines } = proofs(target, ticket, label)
+  const all = route(diff, ['R1', 'R2', 'R3'])
+  say(`${label}: CI ${pinned.ci.passed} passed, 0 failed; pin.mjs routing (${rules.join(', ')}) `
+    + `gives ${routes.join(', ') || 'no optional role'}, ROSTER and --route agree with the `
+    + `report check; with R3 active: ${Object.keys(all).sort().join(', ') || 'none'}`)
+  const { rows, lines } = proofs(ws, ticket, label)
   for (const row of rows) {
     const want = expect[row.id] ?? row[label.endsWith('naive') ? 'onNaive' : 'onReference']
     assert.equal(row.outcome, want, `${label}: ${row.id}\n${lines.join('\n')}`)
@@ -202,26 +220,33 @@ const scenario = (target, label, patch, { ticket, rules, routes, expect = {} }) 
 
 export const verify = (target) => {
   assert.ok(!existsSync(target), `${target} exists; verify needs a new directory`)
+  assert.ok(!`${target}/`.startsWith(`${repo}/`), 'verify needs a directory outside this lab')
   staticChecks()
 
-  setup(target)
-  const ws = workspaceOf(target)
+  // A clone of this lab: the participant's files and facilitator/, one commit on main.
+  const ws = target
+  cpSync(repo, ws, { recursive: true, filter: (src) => !['.git', '.lab', 'review', 'target',
+    '.idea', 'node_modules'].includes(src.split('/').pop()) })
+  git(ws, ['init', '-q', '-b', 'main'])
+  git(ws, ['add', '-A'])
+  git(ws, ['commit', '-q', '-m', 'Gift card service 1.4.0'])
+  assert.equal(git(ws, ['status', '--porcelain']), '')
   const ci = maven(ws)
   assert.equal(ci.status, 0, ci.output)
   const production = walk(join(ws, 'src/main/java')).filter((f) => f.endsWith('.java')).length
   say(`Base: mvn -o -q test exit 0, ${ci.passed} passed, ${ci.failed} failed; ${production} `
     + `production classes; ${new Set(ci.cases.map((c) => c.className)).size} test classes`)
   assert.ok(ci.failed === 0 && ci.passed >= 35 && ci.passed <= 45, 'base test count')
-  git(ws, ['clean', '-q', '-fdx', '-e', 'review/'])
+  git(ws, ['clean', '-q', '-fdX'])
   const rules = activeRules(ws)
   assert.deepEqual(rules, ['R1', 'R2'], 'base skill activates R1 and R2 only')
 
   git(ws, ['switch', '-q', '-c', 'ticket-1', 'main'])
-  const t1 = scenario(target, 'ticket-1-naive', 'ticket-1-naive.patch',
+  const t1 = scenario(ws, 'ticket-1-naive', 'ticket-1-naive.patch',
     { ticket: 1, rules, routes: [] })
   assert.deepEqual(Object.keys(t1.all), [], 'ticket 1 must not match R3 either')
   git(ws, ['switch', '-q', '-C', 'ticket-1', 'main'])
-  const t1ref = scenario(target, 'ticket-1-reference', 'ticket-1-reference.patch',
+  const t1ref = scenario(ws, 'ticket-1-reference', 'ticket-1-reference.patch',
     { ticket: 1, rules, routes: [] })
   const required = ['Architect    required', 'Tester    required', 'Security Auditor    required']
   const t1line = readFileSync(join(ws, 'review/diff.patch'), 'utf8').split('\n')
@@ -268,7 +293,7 @@ export const verify = (target) => {
     [['HIGH', REFUND, 'Tester'], ['HIGH', REFUND, 'Tester']]), 1, /listed twice/)
   check1('WHERE rewritten', report(t1ref.pinned, 'FAIL', required,
     [['HIGH', REFUND.replace(/:\d+$/, ':31'), 'Tester']]), 1, /WHERE or rule differs/)
-  const testerRecord = join(target, 'report-check', 't1', 'runs', 'tester.md')
+  const testerRecord = join(target, '.lab', 'report-check', 't1', 'runs', 'tester.md')
   const original = readFileSync(testerRecord, 'utf8')
   writeFileSync(testerRecord, original.replace('OBSERVED  x', 'OBSERVED  BD-007: x'))
   const where = REFUND.split(':')[0]
@@ -292,20 +317,19 @@ export const verify = (target) => {
   git(ws, ['merge', '-q', '--ff-only', 'ticket-1'])
 
   // Step 2 comes after ticket 1: the role joins, and R3 does not match ticket 1's pin.
-  const added = run(root, process.execPath, [join(root, 'fixture.mjs'), 'add-role', target])
-  assert.equal(added.status, 0, added.stdout + added.stderr)
-  const onTicket1 = expectedRoster(ws)
-  assert.deepEqual(onTicket1.rules, ['R1', 'R2', 'R3'])
-  assert.deepEqual(Object.keys(onTicket1.matches), [], 'R3 must not match ticket 1')
+  assert.deepEqual(addRole(ws), ['R1', 'R2', 'R3'])
+  const onTicket1 = run(ws, join(ws, '.github/skills/multi-agent-review/pin.mjs'), ['--route'])
+  assert.equal(onTicket1.stdout, 'Active rules: R1, R2, R3\nNo optional rule matches\n',
+    'R3 must not match ticket 1')
   git(ws, ['add', '-A'])
   git(ws, ['commit', '-q', '-m', 'Add the primitive-obsession reviewer and rule R3'])
-  say('Step 2: add-role activates R1, R2, R3; on ticket 1\'s pin no optional rule matches; '
-    + 'committed on main')
+  say('Step 2: add-role activates R1, R2, R3; pin.mjs --route on ticket 1\'s pin: no optional '
+    + 'rule matches; committed on main')
   const rules3 = activeRules(ws)
-  const empty = run(root, process.execPath, [join(root, 'fixture.mjs'), 'commit', target, 'x'])
-  assert.equal(empty.status, 1)
-  assert.equal(empty.stderr.trim(), 'Nothing to commit: no change outside review/.')
-  say('commit with nothing to commit: one line on stderr, exit 1')
+  const onMain = run(ws, join(ws, '.github/skills/multi-agent-review/pin.mjs'), [])
+  assert.equal(onMain.status, 1)
+  assert.match(onMain.stderr, /^On main: switch to the ticket branch/)
+  say('pin.mjs on main: refused, one line on stderr')
   const domainOnly = ['diff --git a/src/main/java/com/example/giftcard/domain/CardService.java '
     + 'b/src/main/java/com/example/giftcard/domain/CardService.java',
   '--- a/src/main/java/com/example/giftcard/domain/CardService.java',
@@ -316,19 +340,20 @@ export const verify = (target) => {
 
   // Ticket 2 on top of ticket 1's reference and the new role, both ways.
   git(ws, ['switch', '-q', '-c', 'ticket-2', 'main'])
-  const t2 = scenario(target, 'ticket-2-naive', 'ticket-2-naive.patch',
+  const t2 = scenario(ws, 'ticket-2-naive', 'ticket-2-naive.patch',
     { ticket: 'all', rules: rules3, routes: ['R1', 'R2', 'R3'],
       expect: { 'T1-A': 'PASS', 'T1-B': 'PASS', 'T1-C': 'PASS' } })
   assert.deepEqual(Object.keys(t2.all).sort(), ['R1', 'R2', 'R3'])
-  const decided = run(root, process.execPath, [join(root, 'fixture.mjs'), 'decide', target,
-    'BD-011', 'BD-011 holds: 14 days.'])
-  assert.equal(decided.status, 0, decided.stdout + decided.stderr)
+  // The decision as the review session records it, in the skill's format.
+  const decisions = join(ws, 'review/DECISIONS.md')
+  writeFileSync(decisions, readFileSync(decisions, 'utf8').replace(/\nnone\n$/, '\n')
+    + '\nDECISION  BD-011\nDATE      2026-11-24\nTEXT      BD-011 holds: 14 days.\n')
   git(ws, ['switch', '-q', '-C', 'ticket-2', 'main'])
-  const t2ref = scenario(target, 'ticket-2-reference', 'ticket-2-reference.patch',
+  const t2ref = scenario(ws, 'ticket-2-reference', 'ticket-2-reference.patch',
     { ticket: 'all', rules: rules3, routes: ['R1', 'R2'] })
   assert.match(readFileSync(join(ws, 'review/DECISIONS.md'), 'utf8'), /^DECISION\s+BD-011$/m,
     'the decision did not carry over to the re-pin')
-  say('decide: BD-011 recorded in review/DECISIONS.md and kept across the re-pin')
+  say('Decision: BD-011 in review/DECISIONS.md is kept across the re-pin')
   assert.ok(!readFileSync(join(ws, 'review/diff.patch'), 'utf8').includes('.github/'),
     'the role commit leaked into ticket 2\'s diff')
 
@@ -349,7 +374,7 @@ export const verify = (target) => {
   check2('roster quotes a diff header', report(t2ref.pinned, 'FAIL', [...roster2.slice(0, 4),
     'Migrations    added by R2: diff --git a/x.sql b/x.sql'], [['CRITICAL', v1, 'Migrations']]),
   1, /not an added or removed line/)
-  const rosterFile = join(target, 'report-check', 't2', 'ROSTER')
+  const rosterFile = join(target, '.lab', 'report-check', 't2', 'ROSTER')
   writeFileSync(rosterFile, `${roster2.join('\n')}\n`)
   check2('report roster differs from review/ROSTER', report(t2ref.pinned, 'FAIL',
     roster2.slice(0, 4), [['CRITICAL', v1, 'Migrations']]), 3, /differs from review\/ROSTER/)
@@ -358,10 +383,12 @@ export const verify = (target) => {
     + 'Primitive obsession kept on once its rule no longer matches, a roster that quotes a diff '
     + 'header, and a report roster that differs from review/ROSTER')
 
-  for (const script of ['review-cli.mjs', 'builder-cli.mjs']) {
-    assert.equal(run(root, process.execPath, [join(root, script)]).status, 2, script)
-  }
-  say('review-cli.mjs and builder-cli.mjs: print usage with no arguments')
   assert.equal(git(ws, ['status', '--porcelain']), '')
   say(`Verify passed. Scratch: ${target}`)
 }
+
+cli(() => {
+  const [target] = process.argv.slice(2)
+  assert.ok(target, 'Usage: node facilitator/verify.mjs <new directory outside this repository>')
+  verify(resolve(target))
+})

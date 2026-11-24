@@ -2,9 +2,9 @@
 # Starts Copilot CLI in this repository as one of two roles: builder or reviewer.
 # Use scripts/copilot-builder or scripts/copilot-reviewer; both call this file.
 #
-# Every session gets a disposable profile under ../sessions/NN-<role>/profile, used as HOME
+# Every session gets a disposable profile under .lab/sessions/NN-<role>/profile, used as HOME
 # and COPILOT_HOME, so no personal setting, skill, agent or saved approval reaches it. The
-# session's own event log stays there for the facilitator's audit (fixture.mjs audit).
+# session's own event log stays there for the facilitator's audit. .lab/ is git-ignored.
 # Only PATH, JAVA_HOME, the Maven repository, the token and the terminal settings pass in.
 # Any extra arguments go to Copilot CLI unchanged, for example -p "<prompt>" for a dry run.
 # MAR_MODEL=<id> changes the model, gpt-6-luna by default.
@@ -13,7 +13,6 @@ set -euo pipefail
 role=${1:?usage: copilot-session.sh builder|reviewer [copilot arguments]}
 shift
 W=$(cd "$(dirname "$0")/.." && pwd -P)
-RUN=$(cd "$W/.." && pwd -P)
 MODEL=${MAR_MODEL:-gpt-6-luna}
 
 token=${COPILOT_GITHUB_TOKEN:-$(gh auth token 2>/dev/null || true)}
@@ -28,9 +27,9 @@ if [ -n "${MAR_SESSION:-}" ]; then
   S=$(cd "$MAR_SESSION" && pwd -P)
   [ -d "$S/profile/copilot" ] || { echo "No Copilot profile in $S" >&2; exit 1; }
 else
-  mkdir -p "$RUN/sessions"
-  n=$(printf '%02d' $(( $(ls "$RUN/sessions" | wc -l) + 1 )))
-  S="$RUN/sessions/$n-$role"
+  mkdir -p "$W/.lab/sessions"
+  n=$(printf '%02d' $(( $(ls "$W/.lab/sessions" | wc -l) + 1 )))
+  S="$W/.lab/sessions/$n-$role"
   mkdir -p "$S/profile/temp"
   chmod 700 "$S" "$S/profile"
   git -C "$W" rev-parse HEAD > "$S/head-before"
@@ -39,7 +38,8 @@ fi
 # Copilot CLI checks shell commands by name; the deny rules win over the allow rules.
 case "$role" in
 builder)
-  # The builder never sees docs/: the reviewers' rules stay with the reviewers. It cannot
+  # The builder never sees docs/ or facilitator/: the reviewers' rules stay with the
+  # reviewers, and the facilitator's answers with the facilitator. It cannot
   # commit, start a subagent, use a skill, or write the review setup, the tickets or review/.
   flags=(
     --no-ask-user
@@ -49,10 +49,12 @@ builder)
     --deny-tool='shell(git commit)' --deny-tool='shell(git push)' --deny-tool='shell(git reset)'
     --deny-tool='shell(git checkout)' --deny-tool='shell(git stash)'
     --deny-tool=url --deny-tool=memory
-    --deny-tool="read($W/docs/**)"
+    --deny-tool="read($W/docs/**)" --deny-tool="read($W/facilitator/**)"
+    --deny-tool="read($W/.lab/**)"
     --deny-tool="write($W/docs/**)" --deny-tool="write($W/.github/**)"
     --deny-tool="write($W/tickets/**)" --deny-tool="write($W/review/**)"
     --deny-tool="write($W/scripts/**)" --deny-tool="write($W/REVIEW-CONTRACT.md)"
+    --deny-tool="write($W/facilitator/**)"
   ) ;;
 reviewer)
   # The review session writes only under review/. Its one shell command is the skill's pin
@@ -71,6 +73,8 @@ reviewer)
     --deny-tool=url --deny-tool=memory "${deny_ro[@]}"
     --allow-tool='shell(.github/skills/multi-agent-review/pin.mjs)'
     --allow-tool='write(review/**)'
+    --deny-tool="read($W/facilitator/**)" --deny-tool="read($W/.lab/**)"
+    --deny-tool="write($W/facilitator/**)"
     --deny-tool="write($W/src/**)" --deny-tool="write($W/docs/**)"
     --deny-tool="write($W/.github/**)" --deny-tool="write($W/tickets/**)"
     --deny-tool="write($W/scripts/**)" --deny-tool="write($W/review-templates/**)"
@@ -85,7 +89,7 @@ esac
 cd "$W"
 exec env -i PATH="$PATH" HOME="$S/profile" TMPDIR="$S/profile/temp" \
   COPILOT_HOME="$S/profile/copilot" COPILOT_CACHE_HOME="$S/profile/cache" \
-  GIT_CEILING_DIRECTORIES="$RUN" ${JAVA_HOME:+JAVA_HOME="$JAVA_HOME"} \
+  GIT_CEILING_DIRECTORIES="$(dirname "$W")" ${JAVA_HOME:+JAVA_HOME="$JAVA_HOME"} \
   MAVEN_ARGS="-o -Dmaven.repo.local=${MAVEN_REPO:-$HOME/.m2/repository}" \
   COPILOT_GITHUB_TOKEN="$token" TERM="${TERM:-xterm-256color}" COLORTERM="${COLORTERM:-truecolor}" \
   LANG="${LANG:-en_GB.UTF-8}" \

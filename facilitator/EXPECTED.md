@@ -1,19 +1,20 @@
 # Expected outcomes · facilitator only
 
-Do not copy this file into a participant's workspace. `fixture.mjs setup` copies `base/`
-only.
+This file is in `facilitator/`. No Copilot session may read that folder: the launch scripts
+deny it, and `.ignore` hides it from search tools. Keep it off the shared screen.
 
 The outcomes below hold when the builder follows the ticket, which `AGENTS.md` tells it to
 do. Each contradiction maps to one knowledge file, so one reviewer is expected to flag it.
 Each row has a proof test under `facilitator/proofs/` that checks the behaviour the
 knowledge file requires: it fails on a ticket-following head and passes once the finding is
-fixed. Run them with `node fixture.mjs proofs <dir> <1|2|all>`.
+fixed. Run them with `node facilitator/proofs.mjs 1|2|all`.
 
-`facilitator/reference/*.patch` are inputs to `fixture.mjs verify` only. They show that each
+`facilitator/reference/*.patch` are inputs to `node facilitator/verify.mjs` and the offline
+fallback only. They show that each
 proof fails on a ticket-following implementation and passes on a knowledge-following one.
 The participant never uses them, and the one-to-one has no reference branches.
 
-Citations are `path:line` «text on that line». `fixture.mjs verify` checks every one.
+Citations are `path:line` «text on that line». `facilitator/verify.mjs` checks every one.
 
 ## Contradictions
 
@@ -35,8 +36,7 @@ under DISAGREEMENTS, name it `BD-011` in CAUSES, and write NEXT "a human decides
 The report check flags a dispute named only by a test rule such as T-3. The scripted human decision is: BD-011
 holds, 14 days, in these words: "BD-011 holds: the grace period is 14 days. No entry
 supersedes it. The PO adds one if 30 days is wanted." In the guide the participant asks the
-review session to record it; the wrapper runbook uses `fixture.mjs decide <dir> BD-011
-"<text>"`. Both write the same block to `review/DECISIONS.md`. Every reviewer and the reconciler read that file; the
+review session to record it, and the session writes the block to `review/DECISIONS.md`. Every reviewer and the reconciler read that file; the
 pin keeps it across re-pins of the same branch. With the decision recorded and the code at
 14 days, the Tester reports no finding on BD-011, `docs/knowledge/BUSINESS_DECISIONS.md:21`
 «review/DECISIONS.md», and the reconciler lists no disagreement.
@@ -84,10 +84,10 @@ the `String` overload.
 
 | Ticket | Why | Deterministic check |
 |---|---|---|
-| 1 | `tickets/TICKET-1-partial-refund.md:31` «Internal only»: no `api/` change, so no R1 | `fixture.mjs pin` prints `Routing (R1, R2): no optional role`; `review-cli.mjs` report check flags an added role whose rule does not match |
+| 1 | `tickets/TICKET-1-partial-refund.md:31` «Internal only»: no `api/` change, so no R1 | the pin writes a `review/ROSTER` of the three required roles; `node facilitator/check.mjs` flags an added role whose rule does not match |
 | 1 | `tickets/TICKET-1-partial-refund.md:25` «no schema change is needed»: no migration, so no R2 | as above |
 
-| 1, after step 3 | the role is added after ticket 1's PASS; R3 matches no line of ticket 1's diff | `fixture.mjs route` prints `Active rules: R1, R2, R3` and `No optional rule matches` on ticket 1's pin |
+| 1, after step 3 | the role is added after ticket 1's PASS; R3 matches no line of ticket 1's diff | `pin.mjs --route` and `node facilitator/check.mjs` print `Active rules: R1, R2, R3` and `No optional rule matches` on ticket 1's pin |
 
 If the builder adds refunds to `GiftCards` anyway, R1 matches and the roster is right to
 include API compatibility. Record it as a builder deviation.
@@ -113,3 +113,21 @@ Proofs at each step:
 
 Architect and Security Auditor are expected to report no blocking finding on ticket 2.
 Anything else blocking is a deviation: record it with the finding text.
+
+## Who reads what
+
+Each knowledge file has one reader. `facilitator/verify.mjs` checks this table against the agent
+files, and `node facilitator/audit.mjs` checks it against what each subagent opened.
+
+| Agent | Knowledge files | Rules a ticket contradicts |
+|---|---|---|
+| `architect` | ARCHITECTURE.md, CODE_STRUCTURE.md | A-1, A-2 (T1-C) |
+| `tester` | TEST_PATTERNS.md, BUSINESS_DECISIONS.md | BD-007 (T1-A), BD-011 (T2-C) |
+| `security-auditor` | SECURITY.md | S-2 (T1-B) |
+| `api-compatibility` | API_POLICY.md | P-2, P-3, P-5 (T2-B, T2-D) |
+| `migrations` | MIGRATION_PATTERNS.md | M-1, M-2 (T2-A) |
+| `primitive-obsession` | CODE_PATTERNS.md | CP-2, CP-3, CP-4 (T2-E) |
+| `reconciler` | REVIEW_PATTERNS.md | none: RP-5 sends a disputed finding to DISAGREEMENTS |
+
+The builder reads `AGENTS.md` and the ticket, and is denied `docs/` and `facilitator/`. The skill's main agent
+reads no knowledge file.

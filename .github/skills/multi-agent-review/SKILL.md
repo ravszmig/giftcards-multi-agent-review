@@ -6,7 +6,8 @@ description: Reviews the pinned diff in review/ with named reviewer agents in pa
 # Multi-agent review
 
 You run the review stage. You do not review the code yourself, you read no file under
-`docs/`, and you change no file outside `review/`. Each reviewer and the reconciler is a
+`docs/` or `facilitator/`, and you change no file outside `review/`. `facilitator/` is not
+part of the project: no reviewer reads it either. Each reviewer and the reconciler is a
 custom agent. You start each one with the `task` tool, `agent_type` set to the agent's
 name. You do not use `/fleet`.
 
@@ -24,7 +25,7 @@ name. You do not use `/fleet`.
 ## 0 · Pin the change
 
 When you are asked to review a branch or its changes, pin it first. Run this command with
-the shell tool, from the workspace root, exactly as written, with nothing in front of it:
+the shell tool, from the repository root, exactly as written, with nothing in front of it:
 
 ```sh
 .github/skills/multi-agent-review/pin.mjs
@@ -36,8 +37,7 @@ changes. It writes `review/PIN`, `review/diff.patch`, `review/ci-results.txt` fr
 `mvn -o -q test`, and `review/ROSTER`, and keeps `review/DECISIONS.md` for the same branch.
 Do not write those files yourself. If it fails, stop and show its output.
 
-When you are asked to review the pinned diff, it is already pinned: skip this section. Do
-not pin for a rerun, a reconcile only, a routing question or a human decision.
+Do not pin for a rerun, a reconcile only, a routing question or a human decision.
 
 ## 1 · Read the roster
 
@@ -82,7 +82,7 @@ You are the <Role> reviewer. Review the pinned diff.
 Copy that DIFF line into your run status block character for character. The diff is review/diff.patch. The working tree is at head.
 The change implements <ticket path>. It is the author's intent, given as context. Review only the code in the diff.
 Recorded human decisions are in review/DECISIONS.md. A recorded decision is final.
-Read AGENTS.md and REVIEW-CONTRACT.md first, then the knowledge files your agent file lists.
+Read AGENTS.md and REVIEW-CONTRACT.md first, then the knowledge files your agent file lists. Read nothing under facilitator/.
 CI results for head are in review/ci-results.txt.
 Reply only with the contract blocks: your run status, then one finding block per issue.
 ```
@@ -94,7 +94,7 @@ diff, a hint, your routing notes or another reviewer's output.
 ## 3 · Record every status
 
 When a reviewer returns, write its reply verbatim to `review/runs/<agent>.md`. Write one
-file per write call, with the path relative to the workspace root, for example
+file per write call, with the path relative to the repository root, for example
 `review/runs/tester.md`. Never put several files in one patch.
 
 - If the task fails, write a run status block with `RUN ERROR` and the error in one line.

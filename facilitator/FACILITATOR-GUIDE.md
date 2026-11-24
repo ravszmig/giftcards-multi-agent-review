@@ -41,38 +41,45 @@ Every prompt is in a block of its own. The participant pastes it unchanged.
 
 Do this the day before, and again on the morning.
 
-1. **Check the fixture** in a terminal of your own, from the repository root. About 30 s,
-   no Copilot call. It must end `Verify passed`:
+1. **Clone the lab** on the participant's machine, and warm Maven up once, with network:
 
    ```sh
-   F="$PWD/forge/demos/demo-fixtures/multi-agent-review"
-   node "$F/fixture.mjs" verify "$HOME/mar-verify-$(date +%Y%m%d-%H%M%S)"
+   git clone https://github.com/ravszmig/giftcards-multi-agent-review.git
+   cd giftcards-multi-agent-review
+   node scripts/warm-up.mjs
    ```
 
-   Then delete that directory.
-2. **Set up the participant's repository.** A new directory outside this repository and
-   outside `/tmp`:
+   Expect `ok  download and run the suite`, `ok  the suite offline`, then
+   `Ready: the suite passes offline.` Every build in the session runs Maven offline.
+
+   Give the clone a neutral Git identity, so commits on the shared screen carry no personal
+   name:
 
    ```sh
-   RUN="$HOME/mar-lab-$(date +%Y%m%d-%H%M%S)"
-   node "$F/fixture.mjs" setup "$RUN"
+   git config user.name "Participant" && git config user.email participant@example.invalid
+   ```
+2. **Check the lab**, from the clone's root. About 40 s, no Copilot call. It must end
+   `Verify passed`:
+
+   ```sh
+   node facilitator/verify.mjs "$HOME/mar-verify-$(date +%Y%m%d-%H%M%S)"
    ```
 
-   It prints `Workspace: $RUN/workspace` and `base <sha> (tag base, branch main)`. Keep
-   `F` and `RUN` set in this terminal: it is your **facilitator terminal**, never on the
-   shared screen. The workspace has a local Git identity, `Participant`, so commits from
-   IntelliJ carry no personal name.
-3. **Open `$RUN/workspace` in IntelliJ** (File, Open). Project SDK: a JDK 21, such as
-   `temurin-21` (File, Project Structure, SDK). Let IntelliJ import Maven. Never open `$F`
-   or `$F/facilitator/` on the shared screen.
+   It copies the lab into that new directory and checks it there. Then delete the
+   directory.
+3. **Open the clone in IntelliJ** (File, Open, the `giftcards-multi-agent-review` folder).
+   Project SDK: a JDK 21, such as `temurin-21` (File, Project Structure, SDK). Let IntelliJ
+   import Maven. Collapse `facilitator/` in the project tree and never open it on the shared
+   screen: it holds the answers.
 4. **IntelliJ settings, once:**
    - Settings, Version Control, Confirmation, When files are created: **Add silently**,
      with "including files created outside IntelliJ" ticked. The builder creates files from
      the terminal. Without this, they wait under Unversioned Files and miss the commit.
    - Commit tool window (Cmd+0), the gear: untick **Analyze code** and **Check TODO**.
      Otherwise every commit stops on a "Commit contains problems" balloon.
-5. **Two terminal tabs.** Open the terminal (Alt+F12). Rename the first tab `builder`
-   (right-click the tab, Rename) and open a second named `review`. In one of them:
+5. **Terminals.** Open IntelliJ's terminal (Alt+F12). Rename the first tab `builder`
+   (right-click the tab, Rename) and open a second named `review`. Both start in the
+   clone's root. In one of them:
 
    ```sh
    java -version && mvn -v && node --version && copilot --version && gh auth status
@@ -80,35 +87,47 @@ Do this the day before, and again on the morning.
 
    JDK 21, Maven 3.9, Node 22 or later, Copilot CLI 1.0.114 or later, signed in to `gh`.
    The launch scripts take the token from `gh auth token` for each Copilot process only.
-6. **Dry run on the participant's model.** Ticket 1 to its first report, in a separate
-   setup, from the facilitator terminal. Up to 6 minutes:
+   Keep a terminal of your own in the clone's root, off the shared screen: your
+   **facilitator terminal**, for the checks below.
+6. **Dry run on the participant's model.** Ticket 1 to its first report, in a second clone,
+   from your facilitator terminal. Up to 6 minutes:
 
    ```sh
    DRY="$HOME/mar-dry-$(date +%Y%m%d-%H%M%S)"
-   node "$F/fixture.mjs" setup "$DRY" && cd "$DRY/workspace" && git switch -q -c ticket-1
+   git clone -q https://github.com/ravszmig/giftcards-multi-agent-review.git "$DRY"
+   cd "$DRY" && git switch -q -c ticket-1
    scripts/copilot-builder --trust-folder -p "Implement tickets/TICKET-1-partial-refund.md. Read AGENTS.md and the ticket, and nothing under docs/. Run mvn -o -q test before you finish and leave the changes uncommitted."
    git add -A && git commit -q -m "GC-207 partial refund"
    scripts/copilot-reviewer --trust-folder -p "Run the multi-agent-review skill on this branch's changes against main."
    grep -E '^(VERDICT|SEVERITY|RAISED BY)' review/REPORT.md
-   node "$F/review-cli.mjs" "$DRY" check && node "$F/fixture.mjs" proofs "$DRY" 1
+   node facilitator/check.mjs && node facilitator/proofs.mjs 1
    cd -
    ```
 
    **Pass:** `VERDICT   FAIL`; three or four HIGHs, all from the expected rules, and no
    CRITICAL: the Architect's A-1 and A-2 as one HIGH or two, the Tester's BD-007, the
    Security Auditor's S-2; `Report check: … 0 problems`; proofs T1-A, T1-B and
-   T1-C `FAIL`. Decide pass or fail from that output, then delete the directory:
+   T1-C `FAIL`. Decide pass or fail from that output, then delete the clone:
    `rm -rf "$DRY"`. Anything else: run it once more. Two misses on the same model: use the
-   [offline fallback](facilitator/WRAPPER-RUNBOOK.md#offline-fallback). Models change. A
-   dry run from last week proves nothing today.
+   [offline fallback](REFERENCE.md#offline-fallback). Models change. A dry run from last
+   week proves nothing today.
 7. **Lay out IntelliJ:** project tree left, editor centre, terminal bottom, Commit tool
    window (Cmd+0) on the left edge, the branch widget in the title bar.
 
 ### Reset between participants
 
-Close the project, delete `$RUN`, and run `setup` into a new directory. Nothing is reused:
-the run directory also holds every session's profile and log, the old pins and the proof
-runs.
+Delete the clone and clone again, then run step 1's Git identity line. Or, in the clone:
+in IntelliJ, Git, Rollback any open change, check out `main`, and delete the `ticket-1` and
+`ticket-2` branches from the branch widget. Then, from the clone's root:
+
+```sh
+git reset -q --hard origin/main
+rm -rf review .lab
+```
+
+The reset takes `main` back past the merges and the role commit. `review/` holds the last
+pin, records and report; `.lab/` holds every Copilot session's profile and log, and the
+proof runs. Both are ignored by Git, so Rollback keeps them.
 
 ## How the lab works
 
@@ -139,7 +158,7 @@ review tab: scripts/copilot-reviewer, a fresh session per review
 | Pin and routing | `.github/skills/multi-agent-review/pin.mjs` | Review session, step 0. `--route` answers "which rules match" without pinning |
 | Reviewers | `.github/agents/*.agent.md` | One per role, `tools: ["read", "search"]`, a `## Knowledge` list each |
 | Contract | `REVIEW-CONTRACT.md` | Every reviewer and the reconciler |
-| Knowledge | `docs/knowledge/*.md` | One reviewer per file. See [Who reads what](README.md#who-reads-what) |
+| Knowledge | `docs/knowledge/*.md` | One reviewer per file. See [Who reads what](EXPECTED.md#who-reads-what) |
 | Decisions | `review/DECISIONS.md` | Every reviewer and the reconciler. Kept across re-pins of a branch |
 
 **The roster is computed, not judged.** `pin.mjs` applies each active rule's test to the
@@ -149,13 +168,14 @@ run; code does not.
 
 **Two sessions, two sets of permissions.** `scripts/copilot-builder` and
 `scripts/copilot-reviewer` each start Copilot CLI on `gpt-6-luna` with a disposable profile
-under `$RUN/sessions/NN-<role>/`, so no personal setting, skill or saved approval reaches
+under `.lab/sessions/NN-<role>/`, so no personal setting, skill or saved approval reaches
 it. `MAR_MODEL=<id>` before the script changes the model.
 
 | Control | Builder | Review session |
 |---|---|---|
-| Reads `docs/` | Denied | Each reviewer its own files, by instruction. Checked afterwards by `fixture.mjs audit` |
-| Writes | Anywhere except `docs/`, `.github/`, `tickets/`, `review/`, `scripts/`, `REVIEW-CONTRACT.md` | `review/` only. The rest of the workspace is denied |
+| Reads `docs/` | Denied | Each reviewer its own files, by instruction. Checked afterwards by `node facilitator/audit.mjs` |
+| Writes | Anywhere except `docs/`, `facilitator/`, `.github/`, `tickets/`, `review/`, `scripts/`, `REVIEW-CONTRACT.md` | `review/` only. The rest of the repository is denied |
+| Reads `facilitator/` | Denied, and hidden from search tools by `.ignore`. A shell command such as `cat` could still reach it: the audit counts every call naming it | Denied, and hidden from search tools. Shell commands that read files are denied |
 | Shell | `mvn`, `git status`, `git diff`, `ls` run without asking. Other read-only commands run too. Commit, push, reset, checkout, stash denied | The pin script by its path, allowed. About 40 common commands denied by name, `wc`, `rg`, `cat`, `git` and `node` among them. Anything else asks |
 | Subagents, skills | Hidden | The skill starts every reviewer with `task` |
 
@@ -183,13 +203,12 @@ real, and whether the report keeps the contract.
 
 | When | Command | What it proves |
 |---|---|---|
-| After every review | `node "$F/review-cli.mjs" "$RUN" check` | The report against the contract, the routing rules and `review/ROSTER`. Any problem: do not use the verdict |
-| After every review | `node "$F/fixture.mjs" proofs "$RUN" 1` (ticket 2: `all`) | One proof test per planted contradiction, on HEAD, in a throwaway worktree. FAIL means the defect is in the code |
-| After every review | `node "$F/fixture.mjs" route "$RUN"` | The roster the rules give. It matches `review/ROSTER` |
-| After each build, and at the end | `node "$F/fixture.mjs" audit "$RUN"` | Per session: knowledge files the builder touched, persona scoping, writes outside `review/`, shell commands |
+| After every review | `node facilitator/check.mjs` | The report against the contract, the routing rules and `review/ROSTER`. Any problem: do not use the verdict |
+| After every review | `node facilitator/proofs.mjs 1` (ticket 2: `all`) | One proof test per planted contradiction, on HEAD, in a throwaway worktree. FAIL means the defect is in the code |
+| After each build, and at the end | `node facilitator/audit.mjs` | Per session: knowledge files the builder touched, persona scoping, writes outside `review/`, shell commands |
 
 Run the report check before the participant reads a verdict. The answers are in
-[facilitator/EXPECTED.md](facilitator/EXPECTED.md). Keep it open on your side only.
+[EXPECTED.md](EXPECTED.md). Keep it open on your side only.
 
 ## 0–8: Tour
 
@@ -427,7 +446,8 @@ Active rules: R1, R2, R3
 No optional rule matches
 ```
 
-Nothing is pinned and no reviewer starts. Your `route` check prints the same.
+Nothing is pinned and no reviewer starts. Your `node facilitator/check.mjs` prints the same
+two lines first.
 
 **Show.** The two lines. "R3 is active now, because its row is in the table. It matches
 nothing in ticket 1, so the role would not join a review of it."
@@ -580,7 +600,7 @@ If it prints a one-line confirmation instead, open `review/DECISIONS.md` in the 
 down. Every reviewer and the reconciler read this file, and the pin keeps it."
 
 If the participant chooses 30 days, put their words in the same prompt. That outcome has not
-been rehearsed: see [the disputed item](facilitator/WRAPPER-RUNBOOK.md#the-disputed-item).
+been rehearsed: see [the disputed item](REFERENCE.md#the-disputed-item).
 
 ### Fix, 4 minutes
 
@@ -679,10 +699,9 @@ under this contract.
 **For their repository.** Start with two roles and one knowledge file each, the rules the
 team already repeats in reviews. Add an optional role when a diff pattern can name it.
 
-**Afterwards.** In the facilitator terminal, `node "$F/fixture.mjs" audit "$RUN"` for the
+**Afterwards.** In the facilitator terminal, `node facilitator/audit.mjs` for the
 record of the session. Feedback about the participant goes to the cockpit store with the
-[log-a-session](../../../skillbook/log-a-session/SKILL.md) skill, never into the run directory
-or this repository. Delete `$RUN`.
+log-a-session skill, never into the clone. Then reset the clone, or delete it.
 
 ## If something goes wrong
 
@@ -700,9 +719,9 @@ or this repository. Delete `$RUN`.
 | The pin stops with `Uncommitted changes` | The commit missed files | Commit tool window: tick Unversioned Files, commit, ask again |
 | A builder's new file is missing from the commit | "Add silently" not set | Tick it under Unversioned Files. Set the option for next time |
 | The builder asks to read an odd absolute path, for example one split mid-word | The model mangled a path | Choose No. It retries with the right path. Seen once, under `-p` |
-| A proof already passes on the first build | The builder did not follow the ticket on that point | No finding is expected there. See [the builder deviation](facilitator/WRAPPER-RUNBOOK.md#if-the-builder-does-not-follow-the-ticket) |
+| A proof already passes on the first build | The builder did not follow the ticket on that point | No finding is expected there. See [the builder deviation](REFERENCE.md#if-the-builder-does-not-follow-the-ticket) |
 | `No token` from a launch script | `gh` not signed in | `gh auth login` in that tab |
-| Copilot cannot authenticate, or the model is unavailable | Network or service | [Offline fallback](facilitator/WRAPPER-RUNBOOK.md#offline-fallback). Say the builds are prepared patches |
+| Copilot cannot authenticate, or the model is unavailable | Network or service | [Offline fallback](REFERENCE.md#offline-fallback). Say the builds are prepared patches |
 | Still FAIL after a fix | A blocker remains | Same fix prompt, a new commit, a fresh review. At most three fix loops per ticket. Then debrief on the open findings |
 
 The rerun prompt, recorded for ticket 1. Name the roles that ended `RUN ERROR`:
@@ -742,12 +761,12 @@ Reconcile only: start no reviewer, keep the records in review/runs/ as they are,
 ```
 
 The table of every FAIL cause and its action is in
-[Acting on FAIL](facilitator/WRAPPER-RUNBOOK.md#acting-on-fail).
+[Acting on FAIL](REFERENCE.md#acting-on-fail).
 
 ## Evidence
 
 **Dry runs 1 to 3, 2026-11-24.** This guide end to end, three in parallel, each in a fresh
-setup. The `-p` form of [facilitator/REHEARSAL.md](facilitator/REHEARSAL.md#the-guide-with--p),
+setup. The `-p` form of [REHEARSAL.md](REHEARSAL.md),
 Copilot CLI 1.0.114, `gpt-6-luna` for every session and subagent, macOS, JDK 21.0.9, Maven
 3.9.16 offline, Node.js 24.14.0.
 
@@ -816,10 +835,10 @@ lines, the decision printed whole, audits clean.
 | Review | 1 min 33 s, PASS | 1 min 30 s, PASS | 1 min 26 s, PASS |
 | Copilot time | 17 min 8 s | 16 min 58 s | 16 min 39 s |
 
-What round 2 changed, checked by `fixture.mjs verify` only: the report check rejects a
+What round 2 changed, checked by the lab's verify only: the report check rejects a
 finding above its rule's maximum (S-5 came back HIGH twice, once in a step 6 dry run), the
 pin writes the DIFF line into `review/PIN` for every record to copy, CAUSES lines are
-indented to column 10, `fixture.mjs route` and `pin.mjs --route` print the same words,
+indented to column 10, the facilitator's route check and `pin.mjs --route` print the same words,
 Primitive obsession writes one ACTION per signature (2b's CP-2 and CP-3 ACTIONs disagreed on
 `int` against `Optional<Period>`), and the decision prompt opens "Do not run the review
 skill."
@@ -857,7 +876,7 @@ two reconcile-only prompts after ticket 2's first review.
 | Fix | 46 s | 41 s |
 | Review, PASS | 1 min 18 s | 1 min 23 s |
 
-Fixed after them, checked by `fixture.mjs verify` only:
+Fixed after them, checked by the lab's verify only:
 
 - In a step 6 dry run of 1d, every reviewer `task` call was rejected with `"name": Required`
   and ended `RUN ERROR`. The skill now lists `name` among the four fields every call sets.
@@ -890,8 +909,12 @@ automated and paced like a person. 19 clips, 56 minutes of screen time.
 | Review after the fix | 1 min 57 s | PASS with Primitive obsession wrongly on the roster. Check 1 problem. Two more reviews, the last with a routing prompt: PASS, check 0 problems |
 
 **Rehearsals A4, B4 and A5, 2026-11-20.** The same order with the `-p` launchers
-(`builder-cli.mjs`, `review-cli.mjs`). Every blocking finding in EXPECTED.md came from the
+(`builder-cli.mjs`, `review-cli.mjs`, since removed). Every blocking finding in EXPECTED.md came from the
 expected role, and both tickets reached PASS after one fix round each.
+
+> **TODO.** Every run above used the earlier layout, a setup copy of the lab. The clone
+> layout (Copilot started from the repository root, `facilitator/` denied to every session)
+> has passed `node facilitator/verify.mjs` only. One dry run in a fresh clone closes this.
 
 > **TODO.** The 30-day decision has not been rehearsed. Windows is not covered: the launch
 > scripts are bash. A live `RUN TIMEOUT` has not been seen. In interactive mode, whether the

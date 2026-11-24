@@ -1,9 +1,8 @@
 #!/usr/bin/env node
-// Pins the change under review for the review session: the same files as the fixture's
-// `fixture.mjs pin`. Base is the merge-base with main (tag base on main), head is HEAD. Writes
-// review/PIN, review/diff.patch, review/ci-results.txt (mvn -o -q test on head) and
-// review/ROSTER, keeps review/DECISIONS.md across re-pins of the same branch, and moves the
-// previous pin to ../pins/.
+// Pins the change under review for the review session. Base is the merge-base of the ticket
+// branch with main, head is HEAD. Writes review/PIN, review/diff.patch, review/ci-results.txt
+// (mvn -o -q test on head) and review/ROSTER, and keeps review/DECISIONS.md across re-pins
+// of the same branch.
 //
 // The roster comes from the routing rules in code, not from a model reading the diff: in
 // rehearsal a model left Migrations off a roster that R2 matched. Each rule's test is the
@@ -13,9 +12,10 @@
 // changes nothing.
 import { spawnSync } from 'node:child_process'
 import {
-  cpSync, existsSync, mkdirSync, readFileSync, readdirSync, rmSync, writeFileSync,
+  existsSync, mkdirSync, readFileSync, readdirSync, rmSync, writeFileSync,
 } from 'node:fs'
-import { join } from 'node:path'
+import { dirname, join } from 'node:path'
+import { fileURLToPath } from 'node:url'
 
 const API = 'src/main/java/com/example/giftcard/api/'
 const MIGRATIONS = 'src/main/resources/db/migration/'
@@ -67,15 +67,16 @@ const route = (diff, active) => {
 
 const run = (cmd, args) => spawnSync(cmd, args,
   { encoding: 'utf8', maxBuffer: 256 * 1024 * 1024 })
+// The repository is the one this script lives in, wherever it is started from.
+const ws = join(dirname(fileURLToPath(import.meta.url)), '..', '..', '..')
 const git = (...args) => {
-  const r = run('git', args)
+  const r = run('git', ['-C', ws, ...args])
   if (r.status !== 0) {
     console.error(`git ${args.join(' ')} failed\n${r.stderr}`)
     process.exit(1)
   }
   return r.stdout.trim()
 }
-const ws = git('rev-parse', '--show-toplevel')
 process.chdir(ws)
 const review = join(ws, 'review')
 const active = [...readFileSync(join(ws, '.github/skills/multi-agent-review/SKILL.md'), 'utf8')
@@ -100,7 +101,11 @@ if (status) {
   process.exit(1)
 }
 const branch = git('rev-parse', '--abbrev-ref', 'HEAD')
-const base = git('rev-parse', branch === 'main' ? 'base' : git('merge-base', 'main', 'HEAD'))
+if (branch === 'main') {
+  console.error('On main: switch to the ticket branch to pin its change against main.')
+  process.exit(1)
+}
+const base = git('rev-parse', git('merge-base', 'main', 'HEAD'))
 const head = git('rev-parse', 'HEAD')
 if (base === head) {
   console.error('Nothing to review: HEAD is the base.')
@@ -118,13 +123,6 @@ const oldPin = existsSync(join(review, 'PIN')) ? readFileSync(join(review, 'PIN'
 const keep = oldPin.match(/^branch (\S+)/m)?.[1] === branch
   && existsSync(join(review, 'DECISIONS.md'))
   ? readFileSync(join(review, 'DECISIONS.md'), 'utf8') : undefined
-if (oldPin) {
-  const pins = join(ws, '..', 'pins')
-  mkdirSync(pins, { recursive: true })
-  const old = oldPin.match(/^head (\S{8})/m)?.[1]
-  const name = `${String(readdirSync(pins).length + 1).padStart(2, '0')}-${old}`
-  cpSync(review, join(pins, name), { recursive: true })
-}
 rmSync(review, { recursive: true, force: true })
 mkdirSync(join(review, 'runs'), { recursive: true })
 // The DIFF line every record and the report quote, written once so nobody retypes a SHA.
