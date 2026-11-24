@@ -1,6 +1,6 @@
 # Review patterns
 
-Evidence: `gift-card-service`, branch `main`, the commit tagged `base`.
+Evidence: `gift-card-service`, the first commit on `main`.
 Static inspection of that commit only. Review history was not inspected.
 
 Read by: the reconciler. The reconciler adds no finding of its own; this file tells it how
@@ -46,9 +46,7 @@ prefix tells the reconciler which role a rule belongs to.
 - **RP-5** A reviewer's finding whose OBSERVED begins with `DISPUTED:` goes under
   DISAGREEMENTS as well as FINDINGS. Copy both readings and their sources, with dates and
   owners. The finding stays open and counts towards the verdict at its severity until a
-  human decides. NEXT reads "a human decides: <decision ID>: <reading one> or <reading
-  two>". CAUSES, DISAGREEMENTS and NEXT name the dispute by the business decision it is
-  about, such as `BD-011: <path>`, never by a test rule such as T-3. A dispute
+  human decides. NEXT reads "a human decides: <reading one> or <reading two>". A dispute
   whose rule ID has a decision in `review/DECISIONS.md` is closed: it is not a
   disagreement, NEXT does not say "a human decides" for it, and CAUSES does not list it.
 - **RP-6** Findings are about the code in the diff. Code that differs from the ticket but

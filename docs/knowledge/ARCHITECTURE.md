@@ -1,6 +1,6 @@
 # Architecture
 
-Evidence: `gift-card-service`, branch `main`, the commit tagged `base`.
+Evidence: `gift-card-service`, the first commit on `main`.
 Static inspection of that commit only. No build, test, deployment or external call
 was run. Source configuration is not proof of deployed configuration.
 Path shorthand: `M/` = `src/main/java/com/example/giftcard/`, `T/` = `src/test/java/com/example/giftcard/`.

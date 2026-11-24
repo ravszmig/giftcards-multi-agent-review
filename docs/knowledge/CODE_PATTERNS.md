@@ -1,6 +1,6 @@
 # Code patterns
 
-Evidence: `gift-card-service`, branch `main`, the commit tagged `base`.
+Evidence: `gift-card-service`, the first commit on `main`.
 Static inspection of that commit only.
 Path shorthand: `M/` = `src/main/java/com/example/giftcard/`.
 

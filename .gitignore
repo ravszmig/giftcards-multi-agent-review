@@ -3,7 +3,5 @@
 *.iml
 # Maven output
 target/
-# Generated per review: the pin, the reviewer records and the report. Never committed.
+# Each review writes its records and report here. Never committed.
 review/
-# Per-session Copilot profiles and logs, proof runs. Local to one machine.
-.lab/

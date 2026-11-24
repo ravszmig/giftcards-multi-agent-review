@@ -1,6 +1,6 @@
 # Test patterns
 
-Evidence: `gift-card-service`, branch `main`, the commit tagged `base`.
+Evidence: `gift-card-service`, the first commit on `main`.
 Static inspection of that commit only.
 No command below was executed during ingest. A passing baseline is unverified.
 Path shorthand: `M/` = `src/main/java/com/example/giftcard/`, `T/` = `src/test/java/com/example/giftcard/`.
@@ -25,10 +25,9 @@ Working directory: repository root
 | Full local suite | `mvn -o -q test` | as above | `AGENTS.md` |
 | Types | compile is part of `test` | as above | `pom.xml:34-37` |
 | Lint | not applicable: no lint plugin in `pom.xml` | none | `pom.xml:31-50` |
-| CI | `mvn -o -q test` on every head commit; results in `review/ci-results.txt` for a pinned review | as above | `AGENTS.md` |
+| CI | `mvn -o -q test` before every change is handed over | as above | `AGENTS.md` |
 
-The review stage reads CI results from `review/ci-results.txt`. A reviewer does not rerun
-the suite.
+The builder runs the suite before it hands a change over. A reviewer does not rerun it.
 
 ## 3. Test inventory
 
