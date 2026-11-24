@@ -1,0 +1,278 @@
+diff --git a/src/main/java/com/example/giftcard/adapter/jdbc/JdbcGiftCardRepository.java b/src/main/java/com/example/giftcard/adapter/jdbc/JdbcGiftCardRepository.java
+index 3b8f59c..7ea0f94 100644
+--- a/src/main/java/com/example/giftcard/adapter/jdbc/JdbcGiftCardRepository.java
++++ b/src/main/java/com/example/giftcard/adapter/jdbc/JdbcGiftCardRepository.java
+@@ -29,14 +29,15 @@ public final class JdbcGiftCardRepository implements GiftCardRepository {
+   public Optional<GiftCard> find(CardNumber number) {
+     try (Connection connection = dataSource.getConnection();
+         PreparedStatement select = connection.prepareStatement(
+-            "SELECT balance_pence, issued_on, version FROM cards WHERE number = ?")) {
++            "SELECT balance_pence, issued_on, version, expires_on FROM cards WHERE number = ?")) {
+       select.setString(1, number.value());
+       try (ResultSet row = select.executeQuery()) {
+         if (!row.next()) {
+           return Optional.empty();
+         }
+         return Optional.of(new GiftCard(number, Money.ofPence(row.getLong(1)),
+-            row.getDate(2).toLocalDate(), row.getInt(3)));
++            row.getDate(2).toLocalDate(), row.getInt(3),
++            row.getDate(4) == null ? null : row.getDate(4).toLocalDate()));
+       }
+     } catch (SQLException e) {
+       throw new IllegalStateException("Could not read card " + number.masked(), e);
+@@ -47,10 +48,12 @@ public final class JdbcGiftCardRepository implements GiftCardRepository {
+   public LedgerEntry create(GiftCard card, LedgerEntry issue) {
+     return inTransaction(connection -> {
+       try (PreparedStatement insert = connection.prepareStatement(
+-          "INSERT INTO cards (number, balance_pence, issued_on, version) VALUES (?, ?, ?, 0)")) {
++          "INSERT INTO cards (number, balance_pence, issued_on, version, expires_on) "
++              + "VALUES (?, ?, ?, 0, ?)")) {
+         insert.setString(1, card.number().value());
+         insert.setLong(2, card.balance().pence());
+         insert.setObject(3, card.issuedOn());
++        insert.setObject(4, card.expiresOn());
+         insert.executeUpdate();
+       }
+       return append(connection, issue);
+diff --git a/src/main/java/com/example/giftcard/adapter/web/CardHandler.java b/src/main/java/com/example/giftcard/adapter/web/CardHandler.java
+index 4ad18b6..9428e85 100644
+--- a/src/main/java/com/example/giftcard/adapter/web/CardHandler.java
++++ b/src/main/java/com/example/giftcard/adapter/web/CardHandler.java
+@@ -98,6 +98,9 @@ public final class CardHandler implements HttpHandler {
+     response.put("number", card.number().masked());
+     response.put("balance", card.balance().format());
+     response.put("issuedOn", card.issuedOn().toString());
++    if (card.expiresOn() != null) {
++      response.put("expiresOn", card.expiresOn().toString());
++    }
+     respond(exchange, 200, response);
+   }
+ 
+diff --git a/src/main/java/com/example/giftcard/api/GiftCards.java b/src/main/java/com/example/giftcard/api/GiftCards.java
+index fff3953..9ed9019 100644
+--- a/src/main/java/com/example/giftcard/api/GiftCards.java
++++ b/src/main/java/com/example/giftcard/api/GiftCards.java
+@@ -27,8 +27,17 @@ public final class GiftCards {
+     return cards.issue(initial).number();
+   }
+ 
+-  public CardView balance(CardNumber number) {
+-    return CardView.of(cards.balance(number));
++  /** The card number as partner apps scan it: 16 digits. */
++  public CardView balance(String cardNumber) {
++    return CardView.of(cards.balance(CardNumber.of(cardNumber)));
++  }
++
++  /**
++   * Days from today to the expiry date: negative after it,
++   * {@link Integer#MAX_VALUE} for a card with no expiry date.
++   */
++  public int daysUntilExpiry(String cardNumber) {
++    return cards.daysUntilExpiry(CardNumber.of(cardNumber));
+   }
+ 
+   public CardView redeem(CardNumber number, Money amount, String storeId) {
+diff --git a/src/main/java/com/example/giftcard/domain/CardService.java b/src/main/java/com/example/giftcard/domain/CardService.java
+index 5a74c02..bb4ad8c 100644
+--- a/src/main/java/com/example/giftcard/domain/CardService.java
++++ b/src/main/java/com/example/giftcard/domain/CardService.java
+@@ -2,6 +2,7 @@ package com.example.giftcard.domain;
+ 
+ import java.time.Clock;
+ import java.time.LocalDate;
++import java.time.temporal.ChronoUnit;
+ import java.util.random.RandomGenerator;
+ 
+ /** Issues cards, tops them up and reads balances. */
+@@ -19,8 +20,9 @@ public final class CardService {
+ 
+   /** Issues a card holding {@code initial}, which must be above zero and at most BD-003's cap. */
+   public GiftCard issue(Money initial) {
+-    final GiftCard card = new GiftCard(newNumber(), Money.ZERO, LocalDate.now(clock), 0)
+-        .topUp(initial);
++    final LocalDate today = LocalDate.now(clock);
++    final GiftCard card = new GiftCard(newNumber(), Money.ZERO, today, 0,
++        today.plus(GiftCard.VALIDITY)).topUp(initial);
+     cards.create(card, LedgerEntry.unsaved(card.number(), EntryKind.ISSUE, initial, null,
+         clock.instant()));
+     return card;
+@@ -37,6 +39,18 @@ public final class CardService {
+     return cards.find(number).orElseThrow(() -> new UnknownCardException(number));
+   }
+ 
++  /**
++   * Days from today to the card's expiry date: negative after it, {@link Integer#MAX_VALUE}
++   * for a card with no expiry date.
++   */
++  public int daysUntilExpiry(CardNumber number) {
++    final GiftCard card = balance(number);
++    if (card.expiresOn() == null) {
++      return Integer.MAX_VALUE;
++    }
++    return (int) ChronoUnit.DAYS.between(LocalDate.now(clock), card.expiresOn());
++  }
++
+   private CardNumber newNumber() {
+     final StringBuilder digits = new StringBuilder("6");
+     while (digits.length() < 16) {
+diff --git a/src/main/java/com/example/giftcard/domain/GiftCard.java b/src/main/java/com/example/giftcard/domain/GiftCard.java
+index 7a52fba..6d2a70e 100644
+--- a/src/main/java/com/example/giftcard/domain/GiftCard.java
++++ b/src/main/java/com/example/giftcard/domain/GiftCard.java
+@@ -1,22 +1,40 @@
+ package com.example.giftcard.domain;
+ 
+ import java.time.LocalDate;
++import java.time.Period;
+ 
+ /**
+  * A gift card and its current balance. Immutable: every change returns a new value with the
+  * same version, and the repository increments the version when it stores the change.
+  */
+-public record GiftCard(CardNumber number, Money balance, LocalDate issuedOn, int version) {
++public record GiftCard(CardNumber number, Money balance, LocalDate issuedOn, int version,
++    LocalDate expiresOn) {
+ 
+   /** The most a card may hold at any time (BD-003). */
+   public static final Money MAX_BALANCE = Money.ofPence(50_000);
+ 
++  /** A card expires this long after issue (GC-212). */
++  public static final Period VALIDITY = Period.ofMonths(12);
++
++  /** Days after the expiry date on which a card can still be redeemed (GC-212, Legal 2026-11-10). */
++  public static final int GRACE_DAYS = 30;
++
++  /** A card with no expiry date: every card issued before GC-212. */
++  public GiftCard(CardNumber number, Money balance, LocalDate issuedOn, int version) {
++    this(number, balance, issuedOn, version, null);
++  }
++
++  /** True until the end of the grace period. A card with no expiry date never expires. */
++  public boolean redeemableOn(LocalDate today) {
++    return expiresOn == null || !today.isAfter(expiresOn.plusDays(GRACE_DAYS));
++  }
++
+   public GiftCard redeem(Money amount) {
+     requirePositive(amount);
+     if (amount.isGreaterThan(balance)) {
+       throw new InsufficientBalanceException(number, balance, amount);
+     }
+-    return new GiftCard(number, balance.minus(amount), issuedOn, version);
++    return new GiftCard(number, balance.minus(amount), issuedOn, version, expiresOn);
+   }
+ 
+   public GiftCard topUp(Money amount) {
+@@ -27,7 +45,7 @@ public record GiftCard(CardNumber number, Money balance, LocalDate issuedOn, int
+           "Card " + number + " would hold " + after.format() + ", above "
+               + MAX_BALANCE.format());
+     }
+-    return new GiftCard(number, after, issuedOn, version);
++    return new GiftCard(number, after, issuedOn, version, expiresOn);
+   }
+ 
+   private static void requirePositive(Money amount) {
+diff --git a/src/main/java/com/example/giftcard/domain/RedemptionService.java b/src/main/java/com/example/giftcard/domain/RedemptionService.java
+index d73d801..8e294a1 100644
+--- a/src/main/java/com/example/giftcard/domain/RedemptionService.java
++++ b/src/main/java/com/example/giftcard/domain/RedemptionService.java
+@@ -1,6 +1,7 @@
+ package com.example.giftcard.domain;
+ 
+ import java.time.Clock;
++import java.time.LocalDate;
+ 
+ /** Spends money from a card at a store. */
+ public final class RedemptionService {
+@@ -15,12 +16,17 @@ public final class RedemptionService {
+ 
+   /**
+    * Takes {@code amount} off the card and records a REDEEM entry. The amount must be above
+-   * zero and at most the balance; redeeming the exact balance leaves the card at zero.
++   * zero and at most the balance; redeeming the exact balance leaves the card at zero. A card
++   * past its expiry date and grace period cannot be redeemed (GC-212).
+    *
+    * @return the stored REDEEM entry; its id is the redemption id
+    */
+   public LedgerEntry redeem(CardNumber number, Money amount, String storeId) {
+     final GiftCard card = cards.find(number).orElseThrow(() -> new UnknownCardException(number));
++    if (!card.redeemableOn(LocalDate.now(clock))) {
++      throw new DomainRuleException("CARD_EXPIRED", "Card " + number.masked() + " expired on "
++          + card.expiresOn());
++    }
+     final GiftCard updated = card.redeem(amount);
+     return cards.apply(updated, LedgerEntry.unsaved(number, EntryKind.REDEEM, amount, storeId,
+         clock.instant()));
+diff --git a/src/main/resources/db/migration/V1__create_cards.sql b/src/main/resources/db/migration/V1__create_cards.sql
+index 0d4da13..d9a5363 100644
+--- a/src/main/resources/db/migration/V1__create_cards.sql
++++ b/src/main/resources/db/migration/V1__create_cards.sql
+@@ -2,5 +2,6 @@ CREATE TABLE cards (
+   number VARCHAR(16) PRIMARY KEY,
+   balance_pence BIGINT NOT NULL CHECK (balance_pence >= 0),
+   issued_on DATE NOT NULL,
+-  version INT NOT NULL
++  version INT NOT NULL,
++  expires_on DATE
+ );
+diff --git a/src/test/java/com/example/giftcard/api/GiftCardsTest.java b/src/test/java/com/example/giftcard/api/GiftCardsTest.java
+index 754cef9..3899709 100644
+--- a/src/test/java/com/example/giftcard/api/GiftCardsTest.java
++++ b/src/test/java/com/example/giftcard/api/GiftCardsTest.java
+@@ -28,7 +28,7 @@ class GiftCardsTest {
+   @Test
+   void aViewCarriesTheMaskedNumberOnly() {
+     final CardNumber number = api.issue(Money.parse("30.00"));
+-    final CardView view = api.balance(number);
++    final CardView view = api.balance(number.value());
+     assertEquals(number.masked(), view.maskedNumber());
+     assertEquals(Money.parse("30.00"), view.balance());
+   }
+@@ -46,4 +46,11 @@ class GiftCardsTest {
+     assertTrue(pom.contains("<version>" + GiftCards.VERSION + "</version>"),
+         "pom.xml does not carry version " + GiftCards.VERSION);
+   }
++
++  @Test
++  void partnersCanUseTheScannedNumber() {
++    final CardNumber number = api.issue(Money.parse("30.00"));
++    assertEquals(Money.parse("30.00"), api.balance(number.value()).balance());
++    assertEquals(365, api.daysUntilExpiry(number.value()));
++  }
+ }
+diff --git a/src/test/java/com/example/giftcard/domain/CardExpiryTest.java b/src/test/java/com/example/giftcard/domain/CardExpiryTest.java
+new file mode 100644
+index 0000000..4d856f4
+--- /dev/null
++++ b/src/test/java/com/example/giftcard/domain/CardExpiryTest.java
+@@ -0,0 +1,31 @@
++package com.example.giftcard.domain;
++
++import static org.junit.jupiter.api.Assertions.assertEquals;
++import static org.junit.jupiter.api.Assertions.assertFalse;
++import static org.junit.jupiter.api.Assertions.assertTrue;
++
++import java.time.LocalDate;
++import org.junit.jupiter.api.Test;
++
++class CardExpiryTest {
++
++  private final GiftCard card = new GiftCard(CardNumber.of("6011000990134821"),
++      Money.parse("10.00"), LocalDate.of(2026, 1, 15), 0, LocalDate.of(2027, 1, 15));
++
++  @Test
++  void redeemableUntilTheLastGraceDay() {
++    assertTrue(card.redeemableOn(LocalDate.of(2027, 2, 14)));
++    assertFalse(card.redeemableOn(LocalDate.of(2027, 2, 15)));
++  }
++
++  @Test
++  void aCardWithNoExpiryNeverExpires() {
++    assertTrue(new GiftCard(card.number(), card.balance(), card.issuedOn(), 0)
++        .redeemableOn(LocalDate.of(2099, 1, 1)));
++  }
++
++  @Test
++  void expiryIsTwelveMonthsAfterIssue() {
++    assertEquals(LocalDate.of(2027, 1, 15), card.issuedOn().plus(GiftCard.VALIDITY));
++  }
++}
