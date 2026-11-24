@@ -39,6 +39,11 @@ may follow it. The report copies every finding exactly from its record, with the
 severity, one finding per record block: P-2 and CP-2 on `balance(String)` are two findings.
 CAUSES has one line per blocker, naming every rule it cites, such as `A-1, A-2`.
 
+Also seen and harmless: an extra P-2 when the builder also changes `CardView` (R1 and R3 may
+quote that line); BD-007 raised twice, on the code and on the test; BD-011 followed by BD-018
+and T-3 in NEXT; ticket 1's S-5, CS-4 and T-1 appearing again on ticket 2; R1 quoting a
+renamed-parameter line; R2 quoting the path of a new migration file; "none." for "none".
+
 Seen in rehearsal and harmless: Tester MEDIUMs on boundary tests (T-1, T-4), a Security
 Auditor MEDIUM S-5 on an unvalidated store id in a log line, an Architect LOW on a third copy
 of the card lookup (CS-4) or a MEDIUM on a test helper importing the JDBC adapter (CS-2), an
@@ -50,8 +55,8 @@ T2-C is built to be disputed. The ticket's author, the Stores PO, has owned the 
 2026-10-01 (BD-018, `BUSINESS_DECISIONS.md:38`) and wrote the ticket later, but no entry
 supersedes BD-011. Rule 4 of "How a decision changes" (`BUSINESS_DECISIONS.md:8-22`) makes
 that a dispute. The Tester begins OBSERVED with `DISPUTED: BD-011`, and the reconciler lists
-it under DISAGREEMENTS, names it BD-011 in CAUSES, and writes NEXT "a human decides: BD-011:
-…".
+it under DISAGREEMENTS, names BD-011 first in CAUSES, and writes NEXT "a human decides:
+BD-011: …".
 
 The scripted decision: "BD-011 holds: the grace period is 14 days. No entry supersedes it.
 The PO adds one if 30 days is wanted." The review session writes it to

@@ -59,14 +59,14 @@ prefix tells the reconciler which role a rule belongs to.
 ## 5. Coverage
 
 - **RP-8** One COVERAGE line per role on the roster, in roster order, with RUN and RESULT
-  copied from its record.
+  copied from its record in this review's folder, `review/runs/<n>/`.
 - **RP-9** A record with no `RUN` field, or one that is not in the contract format, counts
   as `RUN ERROR`. A RUN or RESULT line repeated with the same value counts once.
 
 ## 6. NEXT
 
-- **RP-10** CAUSES has one line per open CRITICAL and HIGH finding: every rule ID the
-  finding cites, then its WHERE, such as `A-1, A-2: <path>:<line>`. One line per missing
+- **RP-10** CAUSES has one line per open CRITICAL and HIGH finding: every rule ID cited in
+  its OBSERVED, then its WHERE, such as `CP-2, CP-3: <path>:<line>`. One line per missing
   role. One line per FAIL cause. A confirmed blocker: "fix the code: <finding>". A
   disputed blocker: "a human decides: ...". Missing coverage: "rerun <role>".
 - **RP-11** Nothing reruns automatically. NEXT names an action for a person; it starts

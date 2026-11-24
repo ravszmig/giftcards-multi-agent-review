@@ -73,7 +73,7 @@ review session (plain copilot, fresh each time): "Run the multi-agent-review ski
    1  git status, git diff HEAD ──► roster: Architect, Tester, Security Auditor,
                                     plus R1, R2, R3 when a changed line matches
    2  one task per role, all in one turn ──► each reads its own docs/knowledge files
-   3  review/runs/<agent>.md, one record per role
+   3  review/runs/<n>/<agent>.md, one record per role, a fresh folder per review
    4  reconciler ──► review/REPORT.md: VERDICT PASS or FAIL
 ```
 
@@ -158,8 +158,9 @@ Type `/tasks` when the reviewers start; Esc closes it.
   in `RefundService.java`. NEXT: fix the code.
 - MEDIUM and below vary and do not block.
 
-**Show.** `review/REPORT.md`, then `review/runs/tester.md`: its HIGH is in the report with
-`RAISED BY Tester`.
+**Show.** `review/REPORT.md`, then `review/runs/1/tester.md`: its HIGH is in the report with
+`RAISED BY Tester`. Each review writes its records to the next folder, `review/runs/2/` and
+so on, so earlier reviews stay as they were.
 
 **Ask.** "Your prediction?"
 
@@ -264,7 +265,7 @@ Run the multi-agent-review skill on the current changes. They implement tickets/
 - HIGH from Primitive obsession: CP-2 and CP-3 at `GiftCards.java`. P-2 and CP-2 both point
   at `balance(String)` and stay two findings, one per role.
 - HIGH from the Tester, OBSERVED starting `DISPUTED: BD-011`, listed under DISAGREEMENTS,
-  with NEXT "a human decides: BD-011: …". CAUSES names it BD-011.
+  with NEXT "a human decides: BD-011: …". CAUSES names BD-011 first.
 - No blocker from the Architect or the Security Auditor.
 
 **Show.** The roster first: "Each optional role names the rule and the line that put it
@@ -359,6 +360,17 @@ roster made no claim.
 Then reset the clone (above). Feedback about the participant goes to the cockpit store, never
 into the clone.
 
+Seen in rehearsal, harmless, and no reason to stop:
+
+- An extra P-2 when the builder also changes `CardView`; R1 and R3 may then quote that line.
+- BD-007 raised twice, once on the code and once on the test that asserts it.
+- BD-011 followed by BD-018 and T-3 in the NEXT line of the dispute.
+- Ticket 1's non-blocking findings (S-5, CS-4, T-1) appearing again on ticket 2, whose review
+  also sees ticket 1's changes.
+- R1 quoting a line whose only change is a renamed parameter.
+- R2 quoting the file path of a new migration file instead of a changed line.
+- "none." in place of "none" in DISAGREEMENTS or NEXT.
+
 ## If something goes wrong
 
 | Symptom | Fix |
@@ -386,6 +398,10 @@ both tickets reached PASS after one fix round, and nothing touched Git. They led
 current fix prompts, the BD- rule IDs on business findings, the hook's handling of chained
 `git status` and `git diff`, records cleared at the start of each review, and ticket 2's
 explicit "replace, not overload".
+
+Round 3, three more dry runs: every step matched, one fix round per ticket, the suite green,
+no approval prompts or hook denials, findings copied verbatim. It led to a fresh records
+folder per review and every cited rule in CAUSES.
 
 > **TODO.** Those last changes have not been run end to end. It has not been rehearsed on
 > Windows, and a live `RUN TIMEOUT` has not been seen.

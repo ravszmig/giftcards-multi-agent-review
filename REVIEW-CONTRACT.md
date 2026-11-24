@@ -1,7 +1,8 @@
 # Review contract
 
-Every reviewer replies in this format and nothing else. The reconciler reads only these
-blocks and writes one report.
+Every reviewer replies in this format and nothing else. Each full review keeps its records in
+a fresh folder, `review/runs/<n>/`. The reconciler reads only that folder and writes one
+report, `review/REPORT.md`.
 
 ## Run status: one block per reviewer
 
@@ -49,7 +50,7 @@ Use the severity your knowledge file gives for a rule. Where it gives none:
 ```text
 REVIEW REPORT
 VERDICT   PASS | FAIL
-CAUSES    <one line per blocking finding: every rule ID it cites, then its WHERE; one line per missing role; or "none">
+CAUSES    <one line per blocking finding: every rule ID cited in its OBSERVED, then its WHERE; one line per missing role; or "none">
 
 ROSTER
 <Role name>    required
@@ -80,18 +81,21 @@ VERDICT   FAIL
 CAUSES    A-1, A-2: src/main/java/com/example/giftcard/domain/RefundService.java:3
           BD-007: src/main/java/com/example/giftcard/domain/RefundService.java:40
           M-1: src/main/resources/db/migration/V1__create_cards.sql:4
+          CP-2, CP-3: src/main/java/com/example/giftcard/api/GiftCards.java:34
 
 ROSTER
 Architect    required
 Tester    required
 Security Auditor    required
 Migrations    added by R2: expires_on DATE,
+Primitive obsession    added by R3: public int daysUntilExpiry(String cardNumber) {
 
 COVERAGE
 Architect    RUN RAN    RESULT FINDINGS
 Tester    RUN RAN    RESULT FINDINGS
 Security Auditor    RUN RAN    RESULT NO FINDINGS
 Migrations    RUN RAN    RESULT FINDINGS
+Primitive obsession    RUN RAN    RESULT FINDINGS
 
 FINDINGS
 SEVERITY  CRITICAL
@@ -115,6 +119,13 @@ IMPACT    Money is created that Finance cannot book.
 ACTION    Cap the refunds against one redemption at the redemption amount.
 RAISED BY Tester
 
+SEVERITY  HIGH
+WHERE     src/main/java/com/example/giftcard/api/GiftCards.java:34
+OBSERVED  CP-2, CP-3: `int daysUntilExpiry(String cardNumber)` takes a raw card number and returns raw days.
+IMPACT    Partners can pass any text as a card number and must guess the unit of the result.
+ACTION    `public Optional<Period> daysUntilExpiry(CardNumber number)`.
+RAISED BY Primitive obsession
+
 SEVERITY  MEDIUM
 WHERE     src/test/java/com/example/giftcard/domain/RefundServiceTest.java:54
 OBSERVED  T-1: no test refunds one penny over the redemption.
@@ -129,6 +140,7 @@ NEXT
 fix the code: A-1, A-2: src/main/java/com/example/giftcard/domain/RefundService.java:3
 fix the code: BD-007: src/main/java/com/example/giftcard/domain/RefundService.java:40
 fix the code: M-1: src/main/resources/db/migration/V1__create_cards.sql:4
+fix the code: CP-2, CP-3: src/main/java/com/example/giftcard/api/GiftCards.java:34
 ```
 
 The example mixes the two tickets' issues to show every part once. A disputed finding adds

@@ -18,7 +18,8 @@ Read exactly this file, and no other file under `docs/knowledge/`:
 ## How you work
 
 - Read `REVIEW-CONTRACT.md`, the knowledge file above, `review/DECISIONS.md` if it exists, and
-  every reviewer record your invocation names. Read no source file.
+  every reviewer record in the folder your invocation names. Read no other review folder and
+  no source file.
 - Copy every finding block from its record exactly as written, then add
   `RAISED BY <role>`. Do not reword, shorten, merge or re-rate a finding. Dropping one is the
   worst error you can make: a reader trusts the report instead of the records.
@@ -31,9 +32,10 @@ Read exactly this file, and no other file under `docs/knowledge/`:
   status, not an error.
 - Where roles disagree on whether something is an issue, and where a finding is marked
   `DISPUTED:`, keep both readings and list them under DISAGREEMENTS.
-- CAUSES has one line per blocking finding, naming every rule ID that finding cites and
-  its WHERE, such as `A-1, A-2: <path>:<line>`. Lead with the business decision when there
-  is one, such as `BD-007` or `BD-011`, never a T- rule alone. NEXT names the same rules.
+- CAUSES has one line per blocking finding: every rule ID cited in that finding's OBSERVED,
+  then its WHERE, such as `CP-2, CP-3: <path>:<line>`. Copy each ID; leave none out. Lead
+  with the business decision when there is one, such as `BD-007` or `BD-011`, never a T- rule
+  alone. NEXT names the same rules.
 - A dispute with a decision recorded in `review/DECISIONS.md` is closed. It is not a
   disagreement and not a cause for "a human decides".
 - Copy the roster you are given into ROSTER, one line per role, with role names as in the

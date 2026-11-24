@@ -47,10 +47,11 @@ line, or "No optional rule matches", and start no reviewer.
 
 ## 2 · Start every reviewer at once
 
-Before a full review, delete the previous records in `review/runs/` and `review/REPORT.md`
-with your file tool, for example one `apply_patch` with a `*** Delete File: <path>` line per
-file. Keep `review/DECISIONS.md`. Never use a shell command to delete or write a file: the
-only shell commands in a review are `git status` and `git diff`.
+Each full review gets a fresh folder, `review/runs/<n>/`, where `<n>` is the next number:
+1 if `review/runs/` is empty or missing, otherwise one more than the highest folder there.
+Nothing is deleted. `review/DECISIONS.md` stays at `review/`. Write every file with your file
+tool, never through the shell: the only shell commands in a review are `git status` and
+`git diff`.
 
 Start all reviewers on the roster in a single response: one `task` call per role, all in the
 same turn, so they run in parallel. Every `task` call sets four fields: `name` (the agent,
@@ -70,10 +71,9 @@ a hint, your routing notes or another reviewer's output.
 
 ## 3 · Record every status
 
-When a reviewer returns, write its reply verbatim to `review/runs/<agent>.md` as a new file
-with your file tool, one file per call. If a file is already at that path, delete it first
-with the file tool, then create it. Never patch a record, and never write a file through the
-shell: no heredoc, no redirect.
+When a reviewer returns, create `review/runs/<n>/<agent>.md` with its reply verbatim, using
+your file tool. Never patch a record, and never write a file through the shell: no heredoc,
+no redirect.
 
 - If the task fails, write a run status block with `RUN ERROR` and the error in one line.
 - If a reviewer has not returned after 10 minutes, stop it and write `RUN TIMEOUT`.
@@ -86,23 +86,25 @@ When every reviewer on the roster has a record, start the `reconciler` agent onc
 ```text
 Reconcile the review of the current changes.
 Read REVIEW-CONTRACT.md, review/DECISIONS.md if it exists, and the knowledge file your agent file lists.
-The reviewer records are review/runs/<agent>.md for: <agents>.
+The reviewer records are in review/runs/<n>/, one <agent>.md each, for: <agents>. Read no other folder.
 Roster: <one line per role: "<Role name>    required" or "<Role name>    added by <rule ID>: <matched line, without its leading + or ??>">.
 Reply only with the report in the contract's format.
 ```
 
-Write its reply verbatim to `review/REPORT.md` as a new file with your file tool: delete any
-earlier report first with the file tool, never patch it. Then print the report and stop.
+Write its reply verbatim to `review/REPORT.md` with your file tool, as the whole file: create
+it, or replace every line of the earlier report. Never patch part of it. Then print the report
+and stop.
 
 ## Rerun one reviewer
 
-If you are asked to rerun a role, start only that agent with the step 2 prompt, delete and
-recreate only its record, and reconcile as in step 4 with the roster of the last report.
+If you are asked to rerun a role, start only that agent with the step 2 prompt. Its new
+record replaces only that role's record in the current review's folder, the highest
+`review/runs/<n>/`. Then reconcile as in step 4 with the roster of the last report.
 
 ## Reconcile only
 
-If you are asked to reconcile only, start no reviewer and reconcile the records as they are,
-with the roster of the last report.
+If you are asked to reconcile only, start no reviewer and reconcile the records in the current
+review's folder as they are, with the roster of the last report.
 
 ## Record a human decision
 
