@@ -30,7 +30,7 @@ project SDK. In IntelliJ's terminal, from that folder, run `copilot`.
 | `REVIEW-CONTRACT.md` | Run status, findings, severities and the verdict rule |
 | `docs/knowledge/` | The reviewers' rules, one reader per file |
 | `review-templates/` | A reviewer role and a routing rule, added by hand in the session |
-| `facilitator/` | The guide and the expected outcomes. Facilitator only |
+| `facilitator/` | The facilitator guide, with the expected outcomes. Facilitator only |
 
 Each review writes its records and report to `review/`, which Git ignores.
 
